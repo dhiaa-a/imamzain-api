@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// prisma/schema.prisma
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Language {
+  code        String                   @id
+  name        String
+  native_name String
+
+  // relations
+  bookTranslations      BookTranslation[]
+  researchTranslations  ResearchTranslation[]
+  articleTranslations   ArticleTranslation[]
+}
+
+model BookType {
+  id    Int    @id @default(autoincrement())
+  slug  String
+  name  String
+
+  // relations
+  books Book[]
+}
+
+model Book {
+  id           Int                  @id @default(autoincrement())
+  slug         String
+  pages        Int
+  parts        Int
+  views        Int
+  image        String
+  pdf          String
+  part_number  Int
+  total_parts  Int
+  category_id  Int
+  created_at   DateTime             @default(now())
+  updated_at   DateTime             @updatedAt
+
+  // relations
+  category     BookType             @relation(fields: [category_id], references: [id])
+  translations BookTranslation[]
+}
+
+model BookTranslation {
+  id                Int                        @id @default(autoincrement())
+  book_id           Int
+  language_code     String
+  is_default        Boolean
+  title             String
+  author            String
+  print_house       String
+  print_date        String
+  series            String
+
+  // relations
+  book              Book                       @relation(fields: [book_id], references: [id])
+  language          Language                   @relation(fields: [language_code], references: [code])
+  names             BookTranslationName[]
+}
+
+model BookTranslationName {
+  id                    Int                @id @default(autoincrement())
+  book_translation_id   Int
+  name                  String
+
+  // relation
+  translation           BookTranslation    @relation(fields: [book_translation_id], references: [id])
+}
+
+model ResearchTranslationCategory {
+  id         Int        @id @default(autoincrement())
+  slug       String?
+  name       String?
+
+  // relations
+  researches Research[]
+}
+
+model Research {
+  id              Int                          @id @default(autoincrement())
+  slug            String
+  date            DateTime                     @db.Date
+  views           Int
+  pdf             String
+  pages           Int
+  category_id     Int
+  created_at      DateTime                     @default(now())
+  updated_at      DateTime                     @updatedAt
+
+  // relations
+  category        ResearchTranslationCategory  @relation(fields: [category_id], references: [id])
+  translations    ResearchTranslation[]
+}
+
+model ResearchTranslation {
+  id             Int        @id @default(autoincrement())
+  research_id    Int
+  language_code  String
+  title          String
+  abstract       String
+  is_default     Boolean
+
+  // relations
+  research       Research   @relation(fields: [research_id], references: [id])
+  language       Language   @relation(fields: [language_code], references: [code])
+}
+
+model ArticleCategory {
+  id       Int       @id @default(autoincrement())
+  slug     String    @unique
+  name     String
+
+  // relations
+  articles Article[]
+}
+
+model Article {
+  id           Int                   @id @default(autoincrement())
+  slug         String
+  image        String
+  views        Int
+  date         DateTime
+  category_id  Int
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+
+  // relations
+  category     ArticleCategory       @relation(fields: [category_id], references: [id])
+  translations ArticleTranslation[]
+  attachments  ArticleAttachment[]
+}
+
+model ArticleTranslation {
+  id             Int        @id @default(autoincrement())
+  article_id     Int
+  language_code  String
+  is_default     Boolean
+  title          String
+  summary        String
+  body           String
+
+  // relations
+  article        Article    @relation(fields: [article_id], references: [id])
+  language       Language   @relation(fields: [language_code], references: [code])
+}
+
+model ArticleAttachment {
+  id          Int      @id @default(autoincrement())
+  article_id  Int
+  path        String
+
+  // relation
+  article     Article  @relation(fields: [article_id], references: [id])
+}

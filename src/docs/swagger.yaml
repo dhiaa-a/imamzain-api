@@ -1,0 +1,205 @@
+openapi: 3.0.3
+info:
+  title: My API
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/api
+paths:
+  /languages:
+    get:
+      summary: List all languages
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Language'
+    post:
+      summary: Create a language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LanguageInput'
+      responses:
+        '201':
+          description: Created
+  /book-types:
+    get:
+      summary: List all book types
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookType'
+  /books:
+    get:
+      summary: List all books
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+    post:
+      summary: Create a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+      responses:
+        '201':
+          description: Created
+  /books/{id}:
+    get:
+      summary: Get book by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+  /book-translations:
+    get:
+      summary: List all book translations
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookTranslation'
+  /researches:
+    get:
+      summary: List all researches
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Research'
+  /articles:
+    get:
+      summary: List all articles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Article'
+components:
+  schemas:
+    Language:
+      type: object
+      properties:
+        code:        { type: string }
+        name:        { type: string }
+        native_name: { type: string }
+      required: [code, name, native_name]
+
+    LanguageInput:
+      type: object
+      properties:
+        code:        { type: string }
+        name:        { type: string }
+        native_name: { type: string }
+      required: [code, name, native_name]
+
+    BookType:
+      type: object
+      properties:
+        id:   { type: integer }
+        slug: { type: string }
+        name: { type: string }
+      required: [id, slug, name]
+
+    Book:
+      type: object
+      properties:
+        id:           { type: integer }
+        slug:         { type: string }
+        pages:        { type: integer }
+        parts:        { type: integer }
+        views:        { type: integer }
+        image:        { type: string }
+        pdf:          { type: string }
+        part_number:  { type: integer }
+        total_parts:  { type: integer }
+        category_id:  { type: integer }
+        created_at:   { type: string, format: date-time }
+        updated_at:   { type: string, format: date-time }
+      required: [id, slug, pages, parts, views, image, pdf, part_number, total_parts, category_id]
+
+    BookInput:
+      allOf:
+        - $ref: '#/components/schemas/Book'
+      required: [slug, pages, parts, views, image, pdf, part_number, total_parts, category_id]
+
+    BookTranslation:
+      type: object
+      properties:
+        id:              { type: integer }
+        book_id:         { type: integer }
+        language_code:   { type: string }
+        is_default:      { type: boolean }
+        title:           { type: string }
+        author:          { type: string }
+        print_house:     { type: string }
+        print_date:      { type: string }
+        series:          { type: string }
+      required: [id, book_id, language_code, is_default, title, author]
+
+    Research:
+      type: object
+      properties:
+        id:          { type: integer }
+        slug:        { type: string }
+        date:        { type: string, format: date }
+        views:       { type: integer }
+        pdf:         { type: string }
+        pages:       { type: integer }
+        category_id: { type: integer }
+        created_at:  { type: string, format: date-time }
+        updated_at:  { type: string, format: date-time }
+      required: [id, slug, date, views, pdf, pages, category_id]
+
+    Article:
+      type: object
+      properties:
+        id:          { type: integer }
+        slug:        { type: string }
+        image:       { type: string }
+        views:       { type: integer }
+        date:        { type: string, format: date-time }
+        category_id: { type: integer }
+        created_at:  { type: string, format: date-time }
+        updated_at:  { type: string, format: date-time }
+      required: [id, slug, image, views, date, category_id]
+
