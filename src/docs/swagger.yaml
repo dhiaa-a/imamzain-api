@@ -1,1108 +1,986 @@
 openapi: 3.0.0
 info:
-  title: Imam Zain API
-  version: 1.1.0
-  description: |
-    API documentation for the Imam Zain digital platform. This API provides endpoints for managing
-    books, research papers, blog posts, galleries, and other content types for an informational
-    platform about Islamic scholarship.
-  contact:
-    name: API Support
-    email: support@example.com
-    url: https://yourdomain.com/support
-  license:
-    name: Proprietary
-    url: https://yourdomain.com/license
+    title: Imam Zain API
+    version: 1.1.0
+    description: |
+        API documentation for the Imam Zain digital platform. This API provides endpoints for managing
+        books, research papers, blog posts, galleries, and other content types for an informational
+        platform about Islamic scholarship.
+    contact:
+        name: API Support
+        email: support@example.com
+        url: https://yourdomain.com/support
+    license:
+        name: Proprietary
+        url: https://yourdomain.com/license
 
 servers:
-  - url: https://yourdomain.com/api/v1
-    description: Production server
-  - url: https://staging.yourdomain.com/api/v1
-    description: Staging server
-  - url: https://dev.yourdomain.com/api/v1
-    description: Development server
+    - url: https://yourdomain.com/api/v1
+      description: Production server
+    - url: https://staging.yourdomain.com/api/v1
+      description: Staging server
+    - url: https://dev.yourdomain.com/api/v1
+      description: Development server
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT token obtained from the authentication endpoint
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+            description: JWT token obtained from the authentication endpoint
 
-  schemas:
-    StandardResponse:
-      type: object
-      description: Standard format for successful API responses
-      properties:
-        success:
-          type: boolean
-          description: Indicates if the request was successful
-          example: true
-        data:
-          type: object
-          description: Contains the response data
-        message:
-          type: string
-          description: Human-readable success message
-          example: "Operation completed successfully"
+    schemas:
+        StandardResponse:
+            type: object
+            description: Standard format for successful API responses
+            properties:
+                success:
+                    type: boolean
+                    description: Indicates if the request was successful
+                    example: true
+                data:
+                    type: object
+                    description: Contains the response data
+                message:
+                    type: string
+                    description: Human-readable success message
+                    example: "Operation completed successfully"
 
-    ErrorResponse:
-      type: object
-      description: Standard format for error responses
-      properties:
-        success:
-          type: boolean
-          description: Always false for error responses
-          example: false
-        error:
-          type: object
-          properties:
-            code:
-              type: string
-              description: Error code for programmatic handling
-              example: "RESOURCE_NOT_FOUND"
-            message:
-              type: string
-              description: Human-readable error message
-              example: "The requested resource could not be found"
+        ErrorResponse:
+            type: object
+            description: Standard format for error responses
+            properties:
+                success:
+                    type: boolean
+                    description: Always false for error responses
+                    example: false
+                error:
+                    type: object
+                    properties:
+                        code:
+                            type: string
+                            description: Error code for programmatic handling
+                            example: "RESOURCE_NOT_FOUND"
+                        message:
+                            type: string
+                            description: Human-readable error message
+                            example: "The requested resource could not be found"
 
-    Pagination:
-      type: object
-      description: Pagination information for list endpoints
-      properties:
-        total:
-          type: integer
-          description: Total number of items available
-          example: 253
-        page:
-          type: integer
-          description: Current page number
-          example: 3
-        limit:
-          type: integer
-          description: Number of items per page
-          example: 20
-        pages:
-          type: integer
-          description: Total number of pages
-          example: 13
+        Pagination:
+            type: object
+            description: Pagination information for list endpoints
+            properties:
+                total:
+                    type: integer
+                    description: Total number of items available
+                    example: 253
+                page:
+                    type: integer
+                    description: Current page number
+                    example: 3
+                limit:
+                    type: integer
+                    description: Number of items per page
+                    example: 20
+                pages:
+                    type: integer
+                    description: Total number of pages
+                    example: 13
 
-    Book:
-      type: object
-      description: Represents a book resource
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the book
-          example: 42
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "nahj-al-balagha-commentary"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        title:
-          type: string
-          description: Title of the book
-          example: "Commentary on Nahj al-Balagha"
-        author:
-          type: string
-          description: Primary author of the book
-          example: "Sheikh Muhammad Abduh"
-        otherNames:
-          type: array
-          description: Other names associated with the book (co-authors, editors)
-          items:
-            type: string
-          example: ["Muhammad Mohiuddin", "Ali Raza"]
-        printHouse:
-          type: string
-          description: Publishing house that printed the book
-          example: "Dar al-Hikma"
-        printDate:
-          type: string
-          format: date
-          description: Date the book was published
-          example: "2018-06-12"
-        language:
-          type: string
-          description: Primary language of the book
-          example: "Arabic"
-        pages:
-          type: integer
-          description: Total number of pages
-          minimum: 1
-          example: 423
-        parts:
-          type: integer
-          description: Number of parts/volumes in the book
-          minimum: 1
-          example: 2
-        views:
-          type: integer
-          description: Number of times the book has been viewed
-          minimum: 0
-          example: 1834
-        image:
-          type: string
-          description: URL to the book cover image
-          example: "/images/books/nahj-al-balagha-commentary.jpg"
-        pdf:
-          type: string
-          description: URL to the PDF version of the book
-          example: "/files/books/nahj-al-balagha-commentary.pdf"
-        partNumber:
-          type: integer
-          description: Current part number (if multi-part book)
-          minimum: 1
-          example: 1
-        totalParts:
-          type: integer
-          description: Total number of parts in the series
-          minimum: 1
-          example: 3
-        series:
-          type: string
-          description: Name of the series this book belongs to
-          example: "Classical Commentaries"
+        Book:
+            type: object
+            description: Represents a book resource
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the book
+                    example: 42
+                slug:
+                    type: string
+                    description: URL-friendly identifier
+                    example: "nahj-al-balagha-commentary"
+                    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                title:
+                    type: string
+                    description: Title of the book
+                    example: "Commentary on Nahj al-Balagha"
+                author:
+                    type: string
+                    description: Primary author of the book
+                    example: "Sheikh Muhammad Abduh"
+                otherNames:
+                    type: array
+                    description: Other names associated with the book (co-authors, editors)
+                    items:
+                        type: string
+                    example: ["Muhammad Mohiuddin", "Ali Raza"]
+                printHouse:
+                    type: string
+                    description: Publishing house that printed the book
+                    example: "Dar al-Hikma"
+                printDate:
+                    type: string
+                    format: date
+                    description: Date the book was published
+                    example: "2018-06-12"
+                language:
+                    type: string
+                    description: Primary language of the book
+                    example: "Arabic"
+                pages:
+                    type: integer
+                    description: Total number of pages
+                    minimum: 1
+                    example: 423
+                parts:
+                    type: integer
+                    description: Number of parts/volumes in the book
+                    minimum: 1
+                    example: 2
+                views:
+                    type: integer
+                    description: Number of times the book has been viewed
+                    minimum: 0
+                    example: 1834
+                image:
+                    type: string
+                    description: URL to the book cover image
+                    example: "/images/books/nahj-al-balagha-commentary.jpg"
+                pdf:
+                    type: string
+                    description: URL to the PDF version of the book
+                    example: "/files/books/nahj-al-balagha-commentary.pdf"
+                partNumber:
+                    type: integer
+                    description: Current part number (if multi-part book)
+                    minimum: 1
+                    example: 1
+                totalParts:
+                    type: integer
+                    description: Total number of parts in the series
+                    minimum: 1
+                    example: 3
+                series:
+                    type: string
+                    description: Name of the series this book belongs to
+                    example: "Classical Commentaries"
 
-    BookCreate:
-      type: object
-      description: Schema for creating a new book
-      required:
-        - title
-        - author
-      properties:
-        title:
-          type: string
-          description: Title of the book
-          example: "Commentary on Nahj al-Balagha"
-        author:
-          type: string
-          description: Primary author of the book
-          example: "Sheikh Muhammad Abduh"
-        otherNames:
-          type: array
-          description: Other names associated with the book (co-authors, editors)
-          items:
-            type: string
-          example: ["Muhammad Mohiuddin", "Ali Raza"]
-        printHouse:
-          type: string
-          description: Publishing house that printed the book
-          example: "Dar al-Hikma"
-        printDate:
-          type: string
-          format: date
-          description: Date the book was published
-          example: "2018-06-12"
-        language:
-          type: string
-          description: Primary language of the book
-          example: "Arabic"
-        pages:
-          type: integer
-          description: Total number of pages
-          minimum: 1
-          example: 423
-        parts:
-          type: integer
-          description: Number of parts/volumes in the book
-          minimum: 1
-          example: 2
-        image:
-          type: string
-          description: URL to the book cover image
-          example: "/images/books/nahj-al-balagha-commentary.jpg"
-        pdf:
-          type: string
-          description: URL to the PDF version of the book
-          example: "/files/books/nahj-al-balagha-commentary.pdf"
-        partNumber:
-          type: integer
-          description: Current part number (if multi-part book)
-          minimum: 1
-          example: 1
-        totalParts:
-          type: integer
-          description: Total number of parts in the series
-          minimum: 1
-          example: 3
-        series:
-          type: string
-          description: Name of the series this book belongs to
-          example: "Classical Commentaries"
+        BookCreate:
+            type: object
+            description: Schema for creating a new book
+            required:
+                - title
+                - author
+            properties:
+                title:
+                    type: string
+                    description: Title of the book
+                    example: "Commentary on Nahj al-Balagha"
+                author:
+                    type: string
+                    description: Primary author of the book
+                    example: "Sheikh Muhammad Abduh"
+                otherNames:
+                    type: array
+                    description: Other names associated with the book (co-authors, editors)
+                    items:
+                        type: string
+                    example: ["Muhammad Mohiuddin", "Ali Raza"]
+                printHouse:
+                    type: string
+                    description: Publishing house that printed the book
+                    example: "Dar al-Hikma"
+                printDate:
+                    type: string
+                    format: date
+                    description: Date the book was published
+                    example: "2018-06-12"
+                language:
+                    type: string
+                    description: Primary language of the book
+                    example: "Arabic"
+                pages:
+                    type: integer
+                    description: Total number of pages
+                    minimum: 1
+                    example: 423
+                parts:
+                    type: integer
+                    description: Number of parts/volumes in the book
+                    minimum: 1
+                    example: 2
+                image:
+                    type: string
+                    description: URL to the book cover image
+                    example: "/images/books/nahj-al-balagha-commentary.jpg"
+                pdf:
+                    type: string
+                    description: URL to the PDF version of the book
+                    example: "/files/books/nahj-al-balagha-commentary.pdf"
+                partNumber:
+                    type: integer
+                    description: Current part number (if multi-part book)
+                    minimum: 1
+                    example: 1
+                totalParts:
+                    type: integer
+                    description: Total number of parts in the series
+                    minimum: 1
+                    example: 3
+                series:
+                    type: string
+                    description: Name of the series this book belongs to
+                    example: "Classical Commentaries"
 
-    Post:
-      type: object
-      description: Represents a blog post or article
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the post
-          example: 157
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "understanding-islamic-philosophy"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        image:
-          type: string
-          description: Featured image URL
-          example: "/images/posts/islamic-philosophy.jpg"
-        title:
-          type: string
-          description: Title of the post
-          example: "Understanding Islamic Philosophy"
-        summary:
-          type: string
-          description: Brief summary of the post
-          example: "An exploration of the foundational concepts in Islamic philosophy"
-        body:
-          type: object
-          description: The content of the post divided into sections
-          properties:
-            lede:
-              type: string
-              description: Introduction paragraph
-              example: "Islamic philosophy represents one of the most important intellectual traditions in world history..."
-            content:
-              type: string
-              description: Main content of the post
-              example: "## Historical Context\n\nIslamic philosophy emerged in the 8th century..."
-            tail:
-              type: string
-              description: Concluding section
-              example: "In conclusion, Islamic philosophy continues to offer valuable insights..."
-        views:
-          type: integer
-          description: Number of times the post has been viewed
-          minimum: 0
-          example: 3421
-        date:
-          type: string
-          format: date
-          description: Publication date
-          example: "2023-01-15"
-        lastUpdate:
-          type: string
-          format: date
-          description: Last modification date
-          example: "2023-02-10"
-        category:
-          type: string
-          description: Category of the post
-          example: "Philosophy"
-        attachments:
-          type: array
-          description: Related files attached to the post
-          items:
-            $ref: "#/components/schemas/Attachment"
+        Post:
+            type: object
+            description: Represents a blog post or article
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the post
+                    example: 157
+                slug:
+                    type: string
+                    description: URL-friendly identifier
+                    example: "understanding-islamic-philosophy"
+                    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                image:
+                    type: string
+                    description: Featured image URL
+                    example: "/images/posts/islamic-philosophy.jpg"
+                title:
+                    type: string
+                    description: Title of the post
+                    example: "Understanding Islamic Philosophy"
+                summary:
+                    type: string
+                    description: Brief summary of the post
+                    example: "An exploration of the foundational concepts in Islamic philosophy"
+                body:
+                    type: object
+                    description: The content of the post divided into sections
+                    properties:
+                        lede:
+                            type: string
+                            description: Introduction paragraph
+                            example: "Islamic philosophy represents one of the most important intellectual traditions in world history..."
+                        content:
+                            type: string
+                            description: Main content of the post
+                            example: "## Historical Context\n\nIslamic philosophy emerged in the 8th century..."
+                        tail:
+                            type: string
+                            description: Concluding section
+                            example: "In conclusion, Islamic philosophy continues to offer valuable insights..."
+                views:
+                    type: integer
+                    description: Number of times the post has been viewed
+                    minimum: 0
+                    example: 3421
+                date:
+                    type: string
+                    format: date
+                    description: Publication date
+                    example: "2023-01-15"
+                lastUpdate:
+                    type: string
+                    format: date
+                    description: Last modification date
+                    example: "2023-02-10"
+                category:
+                    type: string
+                    description: Category of the post
+                    example: "Philosophy"
+                attachments:
+                    type: array
+                    description: Related files attached to the post
+                    items:
+                        $ref: "#/components/schemas/Attachment"
 
-    PostCreate:
-      type: object
-      description: Schema for creating a new post
-      required:
-        - title
-        - summary
-        - body
-        - category
-      properties:
-        title:
-          type: string
-          description: Title of the post
-          example: "Understanding Islamic Philosophy"
-        summary:
-          type: string
-          description: Brief summary of the post
-          example: "An exploration of the foundational concepts in Islamic philosophy"
-        body:
-          type: object
-          description: The content of the post divided into sections
-          properties:
-            lede:
-              type: string
-              description: Introduction paragraph
-              example: "Islamic philosophy represents one of the most important intellectual traditions in world history..."
-            content:
-              type: string
-              description: Main content of the post
-              example: "## Historical Context\n\nIslamic philosophy emerged in the 8th century..."
-            tail:
-              type: string
-              description: Concluding section
-              example: "In conclusion, Islamic philosophy continues to offer valuable insights..."
-        image:
-          type: string
-          description: Featured image URL
-          example: "/images/posts/islamic-philosophy.jpg"
-        category:
-          type: string
-          description: Category of the post
-          example: "Philosophy"
-        attachments:
-          type: array
-          description: IDs of attachments to associate with the post
-          items:
-            type: integer
-          example: [45, 67, 89]
+        PostCreate:
+            type: object
+            description: Schema for creating a new post
+            required:
+                - title
+                - summary
+                - body
+                - category
+            properties:
+                title:
+                    type: string
+                    description: Title of the post
+                    example: "Understanding Islamic Philosophy"
+                summary:
+                    type: string
+                    description: Brief summary of the post
+                    example: "An exploration of the foundational concepts in Islamic philosophy"
+                body:
+                    type: object
+                    description: The content of the post divided into sections
+                    properties:
+                        lede:
+                            type: string
+                            description: Introduction paragraph
+                            example: "Islamic philosophy represents one of the most important intellectual traditions in world history..."
+                        content:
+                            type: string
+                            description: Main content of the post
+                            example: "## Historical Context\n\nIslamic philosophy emerged in the 8th century..."
+                        tail:
+                            type: string
+                            description: Concluding section
+                            example: "In conclusion, Islamic philosophy continues to offer valuable insights..."
+                image:
+                    type: string
+                    description: Featured image URL
+                    example: "/images/posts/islamic-philosophy.jpg"
+                category:
+                    type: string
+                    description: Category of the post
+                    example: "Philosophy"
+                attachments:
+                    type: array
+                    description: IDs of attachments to associate with the post
+                    items:
+                        type: integer
+                    example: [45, 67, 89]
 
-    Research:
-      type: object
-      description: Represents a research paper or scholarly work
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the research
-          example: 87
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "ethical-principles-in-islam"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        title:
-          type: string
-          description: Title of the research paper
-          example: "Ethical Principles in Islam: A Comparative Study"
-        description:
-          type: string
-          description: Abstract or summary of the research
-          example: "This research examines the foundational ethical principles in Islamic jurisprudence..."
-        author:
-          type: string
-          description: Primary author of the research
-          example: "Dr. Fatima Ahmed"
-        otherNames:
-          type: array
-          description: Co-authors or contributors
-          items:
-            type: string
-          example: ["Prof. Hamid Ali", "Dr. Sarah Khan"]
-        printHouse:
-          type: string
-          description: Publisher of the research
-          example: "Islamic Research Institute"
-        printDate:
-          type: string
-          format: date
-          description: Publication date
-          example: "2022-03-18"
-        language:
-          type: string
-          description: Primary language of the research
-          example: "English"
-        pages:
-          type: integer
-          description: Number of pages
-          minimum: 1
-          example: 42
-        parts:
-          type: integer
-          description: Number of parts/sections
-          minimum: 1
-          example: 1
-        views:
-          type: integer
-          description: Number of times the research has been viewed
-          minimum: 0
-          example: 523
-        category:
-          type: string
-          description: Research category
-          example: "Ethics"
-        pdf:
-          type: string
-          description: URL to the PDF version
-          example: "/files/research/ethical-principles-in-islam.pdf"
+        Research:
+            type: object
+            description: Represents a research paper or scholarly work
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the research
+                    example: 87
+                slug:
+                    type: string
+                    description: URL-friendly identifier
+                    example: "ethical-principles-in-islam"
+                    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                title:
+                    type: string
+                    description: Title of the research paper
+                    example: "Ethical Principles in Islam: A Comparative Study"
+                description:
+                    type: string
+                    description: Abstract or summary of the research
+                    example: "This research examines the foundational ethical principles in Islamic jurisprudence..."
+                author:
+                    type: string
+                    description: Primary author of the research
+                    example: "Dr. Fatima Ahmed"
+                otherNames:
+                    type: array
+                    description: Co-authors or contributors
+                    items:
+                        type: string
+                    example: ["Prof. Hamid Ali", "Dr. Sarah Khan"]
+                printHouse:
+                    type: string
+                    description: Publisher of the research
+                    example: "Islamic Research Institute"
+                printDate:
+                    type: string
+                    format: date
+                    description: Publication date
+                    example: "2022-03-18"
+                language:
+                    type: string
+                    description: Primary language of the research
+                    example: "English"
+                pages:
+                    type: integer
+                    description: Number of pages
+                    minimum: 1
+                    example: 42
+                parts:
+                    type: integer
+                    description: Number of parts/sections
+                    minimum: 1
+                    example: 1
+                views:
+                    type: integer
+                    description: Number of times the research has been viewed
+                    minimum: 0
+                    example: 523
+                category:
+                    type: string
+                    description: Research category
+                    example: "Ethics"
+                pdf:
+                    type: string
+                    description: URL to the PDF version
+                    example: "/files/research/ethical-principles-in-islam.pdf"
 
-    ResearchCreate:
-      type: object
-      description: Schema for creating a new research paper
-      required:
-        - title
-        - description
-        - author
-      properties:
-        title:
-          type: string
-          description: Title of the research paper
-          example: "Ethical Principles in Islam: A Comparative Study"
-        description:
-          type: string
-          description: Abstract or summary of the research
-          example: "This research examines the foundational ethical principles in Islamic jurisprudence..."
-        author:
-          type: string
-          description: Primary author of the research
-          example: "Dr. Fatima Ahmed"
-        otherNames:
-          type: array
-          description: Co-authors or contributors
-          items:
-            type: string
-          example: ["Prof. Hamid Ali", "Dr. Sarah Khan"]
-        printHouse:
-          type: string
-          description: Publisher of the research
-          example: "Islamic Research Institute"
-        printDate:
-          type: string
-          format: date
-          description: Publication date
-          example: "2022-03-18"
-        language:
-          type: string
-          description: Primary language of the research
-          example: "English"
-        pages:
-          type: integer
-          description: Number of pages
-          minimum: 1
-          example: 42
-        parts:
-          type: integer
-          description: Number of parts/sections
-          minimum: 1
-          example: 1
-        category:
-          type: string
-          description: Research category
-          example: "Ethics"
-        pdf:
-          type: string
-          description: URL to the PDF version
-          example: "/files/research/ethical-principles-in-islam.pdf"
+        ResearchCreate:
+            type: object
+            description: Schema for creating a new research paper
+            required:
+                - title
+                - description
+                - author
+            properties:
+                title:
+                    type: string
+                    description: Title of the research paper
+                    example: "Ethical Principles in Islam: A Comparative Study"
+                description:
+                    type: string
+                    description: Abstract or summary of the research
+                    example: "This research examines the foundational ethical principles in Islamic jurisprudence..."
+                author:
+                    type: string
+                    description: Primary author of the research
+                    example: "Dr. Fatima Ahmed"
+                otherNames:
+                    type: array
+                    description: Co-authors or contributors
+                    items:
+                        type: string
+                    example: ["Prof. Hamid Ali", "Dr. Sarah Khan"]
+                printHouse:
+                    type: string
+                    description: Publisher of the research
+                    example: "Islamic Research Institute"
+                printDate:
+                    type: string
+                    format: date
+                    description: Publication date
+                    example: "2022-03-18"
+                language:
+                    type: string
+                    description: Primary language of the research
+                    example: "English"
+                pages:
+                    type: integer
+                    description: Number of pages
+                    minimum: 1
+                    example: 42
+                parts:
+                    type: integer
+                    description: Number of parts/sections
+                    minimum: 1
+                    example: 1
+                category:
+                    type: string
+                    description: Research category
+                    example: "Ethics"
+                pdf:
+                    type: string
+                    description: URL to the PDF version
+                    example: "/files/research/ethical-principles-in-islam.pdf"
 
-    Gallery:
-      type: object
-      description: Represents a gallery item (image collection)
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the gallery
-          example: 24
-        title:
-          type: string
-          description: Title of the gallery
-          example: "Historical Mosques"
-        image:
-          $ref: "#/components/schemas/Image"
+        Gallery:
+            type: object
+            description: Represents a gallery item (image collection)
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the gallery
+                    example: 24
+                title:
+                    type: string
+                    description: Title of the gallery
+                    example: "Historical Mosques"
+                image:
+                    $ref: "#/components/schemas/Image"
 
-    GalleryCreate:
-      type: object
-      description: Schema for creating a new gallery
-      required:
-        - title
-        - image
-      properties:
-        title:
-          type: string
-          description: Title of the gallery
-          example: "Historical Mosques"
-        image:
-          type: integer
-          description: ID of the primary image
-          example: 56
+        GalleryCreate:
+            type: object
+            description: Schema for creating a new gallery
+            required:
+                - title
+                - image
+            properties:
+                title:
+                    type: string
+                    description: Title of the gallery
+                    example: "Historical Mosques"
+                image:
+                    type: integer
+                    description: ID of the primary image
+                    example: 56
 
-    Attachment:
-      type: object
-      description: Represents an attachment (document, PDF, etc.)
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the attachment
-          example: 112
-        path:
-          type: string
-          description: File path
-          example: "/files/attachments/timeline-of-events.pdf"
-        fileName:
-          type: string
-          description: Original file name
-          example: "timeline-of-events.pdf"
-        mimeType:
-          type: string
-          description: MIME type of the file
-          example: "application/pdf"
-        size:
-          type: integer
-          description: File size in bytes
-          example: 2457892
+        Attachment:
+            type: object
+            description: Represents an attachment (document, PDF, etc.)
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the attachment
+                    example: 112
+                path:
+                    type: string
+                    description: File path
+                    example: "/files/attachments/timeline-of-events.pdf"
+                fileName:
+                    type: string
+                    description: Original file name
+                    example: "timeline-of-events.pdf"
+                mimeType:
+                    type: string
+                    description: MIME type of the file
+                    example: "application/pdf"
+                size:
+                    type: integer
+                    description: File size in bytes
+                    example: 2457892
 
-    Image:
-      type: object
-      description: Represents an image resource
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the image
-          example: 56
-        path:
-          type: string
-          description: Image file path
-          example: "/images/gallery/blue-mosque.jpg"
-        alt:
-          type: string
-          description: Alternative text for accessibility
-          example: "Blue Mosque in Istanbul, Turkey"
-        width:
-          type: integer
-          description: Image width in pixels
-          example: 1200
-        height:
-          type: integer
-          description: Image height in pixels
-          example: 800
+        Image:
+            type: object
+            description: Represents an image resource
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the image
+                    example: 56
+                path:
+                    type: string
+                    description: Image file path
+                    example: "/images/gallery/blue-mosque.jpg"
+                alt:
+                    type: string
+                    description: Alternative text for accessibility
+                    example: "Blue Mosque in Istanbul, Turkey"
+                width:
+                    type: integer
+                    description: Image width in pixels
+                    example: 1200
+                height:
+                    type: integer
+                    description: Image height in pixels
+                    example: 800
 
-    Legacy:
-      type: object
-      description: Represents a legacy collection
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the legacy
-          example: 5
-        title:
-          type: string
-          description: Title of the legacy collection
-          example: "Sayings of Imam Zain"
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "sayings-of-imam-zain"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        dictionaries:
-          type: array
-          description: Categorized collections within this legacy
-          items:
-            $ref: "#/components/schemas/Dictionary"
+        Playlist:
+            type: object
+            description: Represents a YouTube playlist
+            properties:
+                playlistId:
+                    type: string
+                    description: YouTube playlist ID
+                    example: "PLxyz123456"
+                title:
+                    type: string
+                    description: Title of the playlist
+                    example: "Lectures on Islamic Ethics"
+                videos:
+                    type: array
+                    description: Videos in this playlist
+                    items:
+                        $ref: "#/components/schemas/Video"
 
-    Dictionary:
-      type: object
-      description: Represents a categorized collection of subjects
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the dictionary
-          example: 12
-        title:
-          type: string
-          description: Title of the dictionary
-          example: "Ethical Teachings"
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "ethical-teachings"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        subjects:
-          type: array
-          description: Subjects contained in this dictionary
-          items:
-            $ref: "#/components/schemas/Subject"
+        Video:
+            type: object
+            description: Represents a YouTube video
+            properties:
+                title:
+                    type: string
+                    description: Title of the video
+                    example: "Understanding Taqwa: Lecture 1"
+                url:
+                    type: string
+                    description: YouTube video URL
+                    example: "https://www.youtube.com/watch?v=abcdefg"
+                date:
+                    type: string
+                    format: date
+                    description: Publication date
+                    example: "2022-05-23"
+                desc:
+                    type: string
+                    description: Video description
+                    example: "In this lecture, we explore the concept of Taqwa (God-consciousness) in Islam."
+                thumbnail:
+                    type: string
+                    description: URL to the video thumbnail
+                    example: "https://i.ytimg.com/vi/abcdefg/hqdefault.jpg"
+                slug:
+                    type: string
+                    description: URL-friendly identifier
+                    example: "understanding-taqwa-lecture-1"
+                    pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
-    Subject:
-      type: object
-      description: Represents a subject containing phrases
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the subject
-          example: "s123"
-        title:
-          type: string
-          description: Title of the subject
-          example: "Truthfulness"
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "truthfulness"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        phrases:
-          type: array
-          description: Phrases within this subject
-          items:
-            $ref: "#/components/schemas/Phrase"
+        Store:
+            type: object
+            description: Represents a store location for physical books/items
+            properties:
+                city:
+                    type: string
+                    description: City name
+                    example: "London"
+                sellpoints:
+                    type: array
+                    description: Selling points in this city
+                    items:
+                        $ref: "#/components/schemas/Sellpoint"
 
-    Phrase:
-      type: object
-      description: Represents a saying or quote
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the phrase
-          example: "p456"
-        content:
-          type: string
-          description: The actual saying or quote
-          example: "Truthfulness leads to righteousness, and righteousness leads to Paradise."
-        explanations:
-          type: array
-          description: Scholarly explanations of this phrase
-          items:
-            $ref: "#/components/schemas/Explanation"
+        Sellpoint:
+            type: object
+            description: Represents a physical selling point
+            properties:
+                name:
+                    type: string
+                    description: Name of the store
+                    example: "Islamic Bookstore"
+                location:
+                    type: string
+                    description: Physical address
+                    example: "123 Main Street, London"
+                phone:
+                    type: string
+                    description: Contact phone number
+                    example: "+44 20 1234 5678"
+                email:
+                    type: string
+                    format: email
+                    description: Contact email
+                    example: "contact@islamicbookstore.com"
+                hours:
+                    type: string
+                    description: Opening hours
+                    example: "Mon-Sat: 9am-6pm, Sun: Closed"
 
-    Explanation:
-      type: object
-      description: Represents a scholarly explanation of a phrase
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the explanation
-          example: 78
-        author:
-          type: string
-          description: Scholar who provided this explanation
-          example: "Sheikh Abdullah bin Bayyah"
-        content:
-          type: string
-          description: The explanation text
-          example: "This saying emphasizes the connection between truthfulness as a moral virtue and its spiritual rewards..."
+        User:
+            type: object
+            description: Represents a user account
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the user
+                    example: 42
+                username:
+                    type: string
+                    description: Username for login
+                    example: "admin_user"
+                    pattern: "^[a-zA-Z0-9_]{3,30}$"
+                email:
+                    type: string
+                    format: email
+                    description: Email address
+                    example: "admin@example.com"
+                hashedPassword:
+                    type: string
+                    description: Securely hashed password (not returned in responses)
+                    example: "$2b$10$..."
+                isActive:
+                    type: boolean
+                    description: Whether the user account is active
+                    example: true
+                roles:
+                    type: array
+                    description: User roles
+                    items:
+                        $ref: "#/components/schemas/Role"
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: Account creation timestamp
+                    example: "2023-01-01T12:00:00Z"
+                lastLogin:
+                    type: string
+                    format: date-time
+                    description: Last login timestamp
+                    example: "2023-04-15T08:32:45Z"
 
-    LifeSection:
-      type: object
-      description: Represents a section about the life of Imam Zain
-      properties:
-        title:
-          type: string
-          description: Title of the section
-          example: "Early Life"
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "early-life"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        content:
-          type: string
-          description: Content of the section
-          example: "Imam Zain was born in Medina in the year..."
+        Role:
+            type: object
+            description: Represents a user role
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the role
+                    example: 1
+                name:
+                    type: string
+                    description: Name of the role
+                    example: "admin"
+                permissions:
+                    type: array
+                    description: Permissions associated with this role
+                    items:
+                        $ref: "#/components/schemas/Permission"
 
-    Playlist:
-      type: object
-      description: Represents a YouTube playlist
-      properties:
-        playlistId:
-          type: string
-          description: YouTube playlist ID
-          example: "PLxyz123456"
-        title:
-          type: string
-          description: Title of the playlist
-          example: "Lectures on Islamic Ethics"
-        videos:
-          type: array
-          description: Videos in this playlist
-          items:
-            $ref: "#/components/schemas/Video"
+        Permission:
+            type: object
+            description: Represents a system permission
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the permission
+                    example: 5
+                name:
+                    type: string
+                    description: Human-readable name
+                    example: "Create Books"
+                key:
+                    type: string
+                    description: Programmatic permission key
+                    example: "books:create"
+                    pattern: "^[a-z]+:[a-z]+$"
 
-    Video:
-      type: object
-      description: Represents a YouTube video
-      properties:
-        title:
-          type: string
-          description: Title of the video
-          example: "Understanding Taqwa: Lecture 1"
-        url:
-          type: string
-          description: YouTube video URL
-          example: "https://www.youtube.com/watch?v=abcdefg"
-        date:
-          type: string
-          format: date
-          description: Publication date
-          example: "2022-05-23"
-        desc:
-          type: string
-          description: Video description
-          example: "In this lecture, we explore the concept of Taqwa (God-consciousness) in Islam."
-        thumbnail:
-          type: string
-          description: URL to the video thumbnail
-          example: "https://i.ytimg.com/vi/abcdefg/hqdefault.jpg"
-        slug:
-          type: string
-          description: URL-friendly identifier
-          example: "understanding-taqwa-lecture-1"
-          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        Group:
+            type: object
+            description: Represents a user group
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the group
+                    example: 3
+                name:
+                    type: string
+                    description: Name of the group
+                    example: "Content Editors"
+                users:
+                    type: array
+                    description: Users in this group
+                    items:
+                        type: integer
+                    example: [5, 8, 12]
 
-    Store:
-      type: object
-      description: Represents a store location for physical books/items
-      properties:
-        city:
-          type: string
-          description: City name
-          example: "London"
-        sellpoints:
-          type: array
-          description: Selling points in this city
-          items:
-            $ref: "#/components/schemas/Sellpoint"
-
-    Sellpoint:
-      type: object
-      description: Represents a physical selling point
-      properties:
-        name:
-          type: string
-          description: Name of the store
-          example: "Islamic Bookstore"
-        location:
-          type: string
-          description: Physical address
-          example: "123 Main Street, London"
-        phone:
-          type: string
-          description: Contact phone number
-          example: "+44 20 1234 5678"
-        email:
-          type: string
-          format: email
-          description: Contact email
-          example: "contact@islamicbookstore.com"
-        hours:
-          type: string
-          description: Opening hours
-          example: "Mon-Sat: 9am-6pm, Sun: Closed"
-
-    User:
-      type: object
-      description: Represents a user account
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the user
-          example: 42
-        username:
-          type: string
-          description: Username for login
-          example: "admin_user"
-          pattern: "^[a-zA-Z0-9_]{3,30}$"
-        email:
-          type: string
-          format: email
-          description: Email address
-          example: "admin@example.com"
-        hashedPassword:
-          type: string
-          description: Securely hashed password (not returned in responses)
-          example: "$2b$10$..."
-        isActive:
-          type: boolean
-          description: Whether the user account is active
-          example: true
-        roles:
-          type: array
-          description: User roles
-          items:
-            $ref: "#/components/schemas/Role"
-        createdAt:
-          type: string
-          format: date-time
-          description: Account creation timestamp
-          example: "2023-01-01T12:00:00Z"
-        lastLogin:
-          type: string
-          format: date-time
-          description: Last login timestamp
-          example: "2023-04-15T08:32:45Z"
-
-    Role:
-      type: object
-      description: Represents a user role
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the role
-          example: 1
-        name:
-          type: string
-          description: Name of the role
-          example: "admin"
-        permissions:
-          type: array
-          description: Permissions associated with this role
-          items:
-            $ref: "#/components/schemas/Permission"
-
-    Permission:
-      type: object
-      description: Represents a system permission
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the permission
-          example: 5
-        name:
-          type: string
-          description: Human-readable name
-          example: "Create Books"
-        key:
-          type: string
-          description: Programmatic permission key
-          example: "books:create"
-          pattern: "^[a-z]+:[a-z]+$"
-
-    Group:
-      type: object
-      description: Represents a user group
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the group
-          example: 3
-        name:
-          type: string
-          description: Name of the group
-          example: "Content Editors"
-        users:
-          type: array
-          description: Users in this group
-          items:
-            type: integer
-          example: [5, 8, 12]
-
-    Log:
-      type: object
-      description: Represents a system audit log entry
-      properties:
-        id:
-          type: integer
-          description: Unique identifier for the log entry
-          example: 1234
-        userId:
-          type: integer
-          description: ID of the user who performed the action
-          example: 42
-        action:
-          type: string
-          description: Action performed
-          example: "CREATE"
-        resource:
-          type: string
-          description: Resource affected
-          example: "books"
-        resourceId:
-          type: integer
-          description: ID of the affected resource
-          example: 56
-        ip:
-          type: string
-          description: IP address of the request
-          example: "192.168.1.1"
-        userAgent:
-          type: string
-          description: User agent from the request
-          example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36..."
-        createdAt:
-          type: string
-          format: date-time
-          description: Timestamp of the action
-          example: "2023-04-15T14:23:12Z"
+        Log:
+            type: object
+            description: Represents a system audit log entry
+            properties:
+                id:
+                    type: integer
+                    description: Unique identifier for the log entry
+                    example: 1234
+                userId:
+                    type: integer
+                    description: ID of the user who performed the action
+                    example: 42
+                action:
+                    type: string
+                    description: Action performed
+                    example: "CREATE"
+                resource:
+                    type: string
+                    description: Resource affected
+                    example: "books"
+                resourceId:
+                    type: integer
+                    description: ID of the affected resource
+                    example: 56
+                ip:
+                    type: string
+                    description: IP address of the request
+                    example: "192.168.1.1"
+                userAgent:
+                    type: string
+                    description: User agent from the request
+                    example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36..."
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: Timestamp of the action
+                    example: "2023-04-15T14:23:12Z"
 
 security:
-  - bearerAuth: []
+    - bearerAuth: []
 
 paths:
-  /auth/login:
-    post:
-      summary: User login
-      description: Authenticates a user and returns a JWT token
-      tags:
-        - Authentication
-      security: []  # No auth required for login
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - username
-                - password
-              properties:
-                username:
-                  type: string
-                  example: "admin_user"
-                password:
-                  type: string
-                  format: password
-                  example: "securePassword123"
-      responses:
-        "200":
-          description: Login successful
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/StandardResponse"
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          token:
-                            type: string
-                            description: JWT token for authentication
-                          user:
+    /auth/login:
+        post:
+            summary: User login
+            description: Authenticates a user and returns a JWT token
+            tags:
+                - Authentication
+            security: [] # No auth required for login
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
                             type: object
+                            required:
+                                - username
+                                - password
                             properties:
-                              id:
-                                type: integer
-                              username:
-                                type: string
-                              roles:
-                                type: array
-                                items:
-                                  type: string
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                                username:
+                                    type: string
+                                    example: "admin_user"
+                                password:
+                                    type: string
+                                    format: password
+                                    example: "securePassword123"
+            responses:
+                "200":
+                    description: Login successful
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/StandardResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  token:
+                                                      type: string
+                                                      description: JWT token for authentication
+                                                  user:
+                                                      type: object
+                                                      properties:
+                                                          id:
+                                                              type: integer
+                                                          username:
+                                                              type: string
+                                                          roles:
+                                                              type: array
+                                                              items:
+                                                                  type: string
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    description: Invalid credentials
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
-  /auth/refresh:
-    post:
-      summary: Refresh token
-      description: Refreshes an existing JWT token
-      tags:
-        - Authentication
-      responses:
-        "200":
-          description: Token refreshed successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/StandardResponse"
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          token:
-                            type: string
-                            description: New JWT token
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+    /auth/refresh:
+        post:
+            summary: Refresh token
+            description: Refreshes an existing JWT token
+            tags:
+                - Authentication
+            responses:
+                "200":
+                    description: Token refreshed successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/StandardResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  token:
+                                                      type: string
+                                                      description: New JWT token
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
 
-  /books:
-    get:
-      summary: Get all books
-      description: Returns a paginated list of books with optional filtering
-      tags:
-        - Books
-      parameters:
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-            minimum: 1
-        - name: limit
-          in: query
-          description: Items per page
-          schema:
-            type: integer
-            default: 10
-            minimum: 1
-            maximum: 100
-        - name: author
-          in: query
-          description: Filter by author
-          schema:
-            type: string
-        - name: language
-          in: query
-          description: Filter by language
-          schema:
-            type: string
-        - name: series
-          in: query
-          description: Filter by series
-          schema:
-            type: string
-        - name: sort
-          in: query
-          description: Sort field
-          schema:
-            type: string
-            enum: [title, author, printDate, views]
-            default: title
-        - name: order
-          in: query
-          description: Sort order
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: asc
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/StandardResponse"
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          books:
-                            type: array
-                            items:
-                              $ref: "#/components/schemas/Book"
-                          pagination:
-                            $ref: "#/components/schemas/Pagination"
-        "400":
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    post:
-      summary: Create a new book
-      description: Creates a new book (admin only)
-      tags:
-        - Books
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BookCreate"
-      responses:
-        "201":
-          description: Book created successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/StandardResponse"
-                  - type: object
-                    properties:
-                      data:
-                        $ref: "#/components/schemas/Book"
-                      message:
-                        type: string
-                        example: Book created successfully
-        "400":
+    /books:
+        get:
+            summary: Get all books
+            description: Returns a paginated list of books with optional filtering
+            tags:
+                - Books
+            parameters:
+                - name: page
+                  in: query
+                  description: Page number
+                  schema:
+                      type: integer
+                      default: 1
+                      minimum: 1
+                - name: limit
+                  in: query
+                  description: Items per page
+                  schema:
+                      type: integer
+                      default: 10
+                      minimum: 1
+                      maximum: 100
+                - name: author
+                  in: query
+                  description: Filter by author
+                  schema:
+                      type: string
+                - name: language
+                  in: query
+                  description: Filter by language
+                  schema:
+                      type: string
+                - name: series
+                  in: query
+                  description: Filter by series
+                  schema:
+                      type: string
+                - name: sort
+                  in: query
+                  description: Sort field
+                  schema:
+                      type: string
+                      enum: [title, author, printDate, views]
+                      default: title
+                - name: order
+                  in: query
+                  description: Sort order
+                  schema:
+                      type: string
+                      enum: [asc, desc]
+                      default: asc
+            responses:
+                "200":
+                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/StandardResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              type: object
+                                              properties:
+                                                  books:
+                                                      type: array
+                                                      items:
+                                                          $ref: "#/components/schemas/Book"
+                                                  pagination:
+                                                      $ref: "#/components/schemas/Pagination"
+                "400":
+                    description: Bad request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+        post:
+            summary: Create a new book
+            description: Creates a new book (admin only)
+            tags:
+                - Books
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/BookCreate"
+            responses:
+                "201":
+                    description: Book created successfully
+                    content:
+                        application/json:
+                            schema:
+                                allOf:
+                                    - $ref: "#/components/schemas/StandardResponse"
+                                    - type: object
+                                      properties:
+                                          data:
+                                              $ref: "#/components/schemas/Book"
+                                          message:
+                                              type: string
+                                              example: Book created successfully
+                "400":
