@@ -18,7 +18,7 @@ const EnvSchema = z.object({
     .refine((n) => !Number.isNaN(n), { message: "PORT must be a number" })
     .default("3000"),
   DATABASE_URL: z.string().url(),
-//   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 chars"),
+  JWT_SECRET: z.string().min(20, "JWT_SECRET must be at least 32 chars"),
 //   MAIL_API_KEY: z.string().min(1),
 //   MAIL_FROM: z.string().email(),
 });
@@ -35,7 +35,7 @@ export const env = {
   NODE_ENV: parsed.data.NODE_ENV,
   PORT: parsed.data.PORT,
   DATABASE_URL: parsed.data.DATABASE_URL,
-//   JWT_SECRET: parsed.data.JWT_SECRET,
+  JWT_SECRET: parsed.data.JWT_SECRET,
 //   MAIL_API_KEY: parsed.data.MAIL_API_KEY,
 //   MAIL_FROM: parsed.data.MAIL_FROM,
 } as const;

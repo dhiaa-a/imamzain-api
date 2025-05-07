@@ -6,6 +6,8 @@
 
 // prisma/schema.prisma
 
+// prisma/schema.prisma
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -15,69 +17,176 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Language {
-  code        String                   @id
-  name        String
-  native_name String
+//
+// ── AUTH & ACL MODELS ─────────────────────────────────────────────────────────
+//
 
-  // relations
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  username      String         @unique
+  passwordHash  String
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  profile       UserProfile?
+  activityLogs  ActivityLog[]
+  roles         UserRole[]
+  groups        GroupMember[]
+}
+
+model UserProfile {
+  id        Int     @id @default(autoincrement())
+  user      User    @relation(fields: [userId], references: [id])
+  userId    Int     @unique
+  fullName  String?
+  avatarUrl String?
+  bio       String?
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  action     String
+  tableName  String
+  recordId   Int?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+}
+
+model Permission {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  description      String?
+
+  rolePermissions  RolePermission[]
+  groupPermissions GroupPermission[]
+}
+
+model UserRole {
+  id      Int   @id @default(autoincrement())
+  user    User  @relation(fields: [userId], references: [id])
+  userId  Int
+  role    Role  @relation(fields: [roleId], references: [id])
+  roleId  Int
+
+  @@unique([userId, roleId])
+}
+
+model Group {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  description      String?
+
+  members          GroupMember[]
+  groupPermissions GroupPermission[]
+}
+
+model GroupMember {
+  id      Int    @id @default(autoincrement())
+  group   Group  @relation(fields: [groupId], references: [id])
+  groupId Int
+  user    User   @relation(fields: [userId], references: [id])
+  userId  Int
+
+  @@unique([groupId, userId])
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  role         Role       @relation(fields: [roleId], references: [id])
+  roleId       Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+
+  @@unique([roleId, permissionId])
+}
+
+model GroupPermission {
+  id           Int        @id @default(autoincrement())
+  group        Group      @relation(fields: [groupId], references: [id])
+  groupId      Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+
+  @@unique([groupId, permissionId])
+}
+
+//
+// ── CONTENT & TRANSLATION MODELS ──────────────────────────────────────────────
+//
+
+model Language {
+  code                String                  @id
+  name                String
+  nativeName          String
+
   bookTranslations      BookTranslation[]
   researchTranslations  ResearchTranslation[]
   articleTranslations   ArticleTranslation[]
 }
 
 model BookType {
-  id    Int    @id @default(autoincrement())
-  slug  String
-  name  String
+  id     Int    @id @default(autoincrement())
+  slug   String
+  name   String
 
-  // relations
-  books Book[]
+  books  Book[]
 }
 
 model Book {
-  id           Int                  @id @default(autoincrement())
+  id           Int                @id @default(autoincrement())
   slug         String
   pages        Int
   parts        Int
   views        Int
   image        String
   pdf          String
-  part_number  Int
-  total_parts  Int
-  category_id  Int
-  created_at   DateTime             @default(now())
-  updated_at   DateTime             @updatedAt
+  partNumber   Int
+  totalParts   Int
+  categoryId   Int
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
-  // relations
-  category     BookType             @relation(fields: [category_id], references: [id])
+  category     BookType           @relation(fields: [categoryId], references: [id])
   translations BookTranslation[]
 }
 
 model BookTranslation {
-  id                Int                        @id @default(autoincrement())
-  book_id           Int
-  language_code     String
-  is_default        Boolean
+  id                Int                    @id @default(autoincrement())
+  bookId            Int
+  languageCode      String
+  isDefault         Boolean
   title             String
   author            String
-  print_house       String
-  print_date        String
+  printHouse        String
+  printDate         String
   series            String
 
-  // relations
-  book              Book                       @relation(fields: [book_id], references: [id])
-  language          Language                   @relation(fields: [language_code], references: [code])
+  book              Book                   @relation(fields: [bookId], references: [id])
+  language          Language               @relation(fields: [languageCode], references: [code])
   names             BookTranslationName[]
 }
 
 model BookTranslationName {
-  id                    Int                @id @default(autoincrement())
-  book_translation_id   Int
-  name                  String
+  id                  Int                @id @default(autoincrement())
+  bookTranslationId   Int
+  name                String
 
-  // relation
-  translation           BookTranslation    @relation(fields: [book_translation_id], references: [id])
+  translation         BookTranslation    @relation(fields: [bookTranslationId], references: [id])
 }
 
 model ResearchTranslationCategory {
@@ -85,46 +194,42 @@ model ResearchTranslationCategory {
   slug       String?
   name       String?
 
-  // relations
   researches Research[]
 }
 
 model Research {
-  id              Int                          @id @default(autoincrement())
-  slug            String
-  date            DateTime                     @db.Date
-  views           Int
-  pdf             String
-  pages           Int
-  category_id     Int
-  created_at      DateTime                     @default(now())
-  updated_at      DateTime                     @updatedAt
+  id          Int                         @id @default(autoincrement())
+  slug        String
+  date        DateTime     @db.Date
+  views       Int
+  pdf         String
+  pages       Int
+  categoryId  Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  // relations
-  category        ResearchTranslationCategory  @relation(fields: [category_id], references: [id])
-  translations    ResearchTranslation[]
+  category    ResearchTranslationCategory @relation(fields: [categoryId], references: [id])
+  translations ResearchTranslation[]
 }
 
 model ResearchTranslation {
-  id             Int        @id @default(autoincrement())
-  research_id    Int
-  language_code  String
+  id             Int         @id @default(autoincrement())
+  researchId     Int
+  languageCode   String
   title          String
   abstract       String
-  is_default     Boolean
+  isDefault      Boolean
 
-  // relations
-  research       Research   @relation(fields: [research_id], references: [id])
-  language       Language   @relation(fields: [language_code], references: [code])
+  research       Research    @relation(fields: [researchId], references: [id])
+  language       Language    @relation(fields: [languageCode], references: [code])
 }
 
 model ArticleCategory {
-  id       Int       @id @default(autoincrement())
-  slug     String    @unique
-  name     String
+  id        Int       @id @default(autoincrement())
+  slug      String    @unique
+  name      String
 
-  // relations
-  articles Article[]
+  articles  Article[]
 }
 
 model Article {
@@ -133,35 +238,32 @@ model Article {
   image        String
   views        Int
   date         DateTime
-  category_id  Int
-  created_at   DateTime              @default(now())
-  updated_at   DateTime              @updatedAt
+  categoryId   Int
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
-  // relations
-  category     ArticleCategory       @relation(fields: [category_id], references: [id])
+  category     ArticleCategory       @relation(fields: [categoryId], references: [id])
   translations ArticleTranslation[]
   attachments  ArticleAttachment[]
 }
 
 model ArticleTranslation {
-  id             Int        @id @default(autoincrement())
-  article_id     Int
-  language_code  String
-  is_default     Boolean
+  id             Int       @id @default(autoincrement())
+  articleId      Int
+  languageCode   String
+  isDefault      Boolean
   title          String
   summary        String
   body           String
 
-  // relations
-  article        Article    @relation(fields: [article_id], references: [id])
-  language       Language   @relation(fields: [language_code], references: [code])
+  article        Article   @relation(fields: [articleId], references: [id])
+  language       Language  @relation(fields: [languageCode], references: [code])
 }
 
 model ArticleAttachment {
-  id          Int      @id @default(autoincrement())
-  article_id  Int
-  path        String
+  id         Int      @id @default(autoincrement())
+  articleId  Int
+  path       String
 
-  // relation
-  article     Article  @relation(fields: [article_id], references: [id])
+  article    Article  @relation(fields: [articleId], references: [id])
 }
