@@ -1,111 +1,94 @@
-import { Request, Response } from "express";
-import bcrypt from "bcrypt";
-import * as jwt from "jsonwebtoken";
-import { env } from "../config/env";
-import { prisma } from "../database/prisma";
+import { Request, Response, NextFunction } from "express";
+import {
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+} from "../services/auth.service";
 
-export async function login(req: Request, res: Response): Promise<any> {
+export async function login(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: { code: "BAD_REQUEST", message: "Username and password required" },
     });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { username },
-    include: { roles: { include: { role: true } } },
-  });
-  if (!user || !user.isActive) {
-    return res
-      .status(401)
-      .json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid credentials" } });
-  }
-
-  const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) {
-    return res
-      .status(401)
-      .json({ success: false, error: { code: "UNAUTHORIZED", message: "Invalid credentials" } });
-  }
-
-  const accessToken = jwt.sign(
-    { userId: user.id },
-    env.JWT_SECRET,
-    { expiresIn: env.ACCESS_TOKEN_EXPIRES_IN }
-  );
-
-  const refreshToken = jwt.sign(
-    { userId: user.id },
-    env.REFRESH_TOKEN_SECRET,
-    { expiresIn: env.REFRESH_TOKEN_EXPIRES_IN }
-  );
-
-  await prisma.refreshToken.create({
-    data: { token: refreshToken, userId: user.id },
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 1000 * 60 * 60 * 24, // 1 day
-  });
-
-  return res.json({
-    success: true,
-    data: {
-      token: accessToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        roles: user.roles.map((ur) => ur.role.name),
-      },
-    },
-  });
-}
-
-
-export async function refreshToken(req: Request, res: Response): Promise<any> {
-  const token = req.cookies.refreshToken;
-  if (!token) {
-    return res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "No refresh token" } });
-  }
-
-  // التحقق من وجوده في DB
-  const stored = await prisma.refreshToken.findUnique({ where: { token } });
-  if (!stored) {
-    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Invalid refresh token" } });
+    return;
   }
 
   try {
-    const payload = jwt.verify(token, env.REFRESH_TOKEN_SECRET) as { userId: number };
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user || !user.isActive) throw new Error();
+    const { user, tokens } = await loginUser(username, password);
 
-    // اصدار Access Token جديد
-    const newAccessToken = jwt.sign(
-      { userId: user.id },
-      env.JWT_SECRET,
-      { expiresIn: env.ACCESS_TOKEN_EXPIRES_IN }
-    );
+    // set HTTP-only cookie for refresh
+    res.cookie("refreshToken", tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60 * 24, // e.g. 1 day
+    });
 
-    return res.json({ success: true, data: { token: newAccessToken } });
-  } catch {
-    return res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Refresh token expired or invalid" } });
+    res.json({ success: true, data: { token: tokens.accessToken, user } });
+  } catch (err: any) {
+    const code = err.message === "UNAUTHORIZED" ? 401 : 500;
+    res.status(code).json({
+      success: false,
+      error: {
+        code: err.message,
+        message:
+          err.message === "UNAUTHORIZED"
+            ? "Invalid credentials"
+            : "Server error",
+      },
+    });
   }
 }
 
-
-export async function logout(req: Request, res: Response): Promise<any> {
+export async function refreshToken(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const token = req.cookies.refreshToken;
-  if (token) {
-    // حذف من DB
-    await prisma.refreshToken.deleteMany({ where: { token } });
-    // مسح الكوكي
-    res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" });
+  if (!token) {
+    res.status(401).json({
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "No refresh token" },
+    });
+    return;
   }
-  return res.json({ success: true, message: "Logged out" });
+
+  try {
+    const { accessToken } = await refreshAccessToken(token);
+    res.json({ success: true, data: { token: accessToken } });
+  } catch (err: any) {
+    const code = err.message === "INVALID_REFRESH_TOKEN" ? 403 : 500;
+    res.status(code).json({
+      success: false,
+      error: {
+        code: err.message,
+        message:
+          err.message === "INVALID_REFRESH_TOKEN"
+            ? "Invalid or revoked refresh token"
+            : "Server error",
+      },
+    });
+  }
+}
+
+export async function logout(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const token = req.cookies.refreshToken;
+  try {
+    await logoutUser(token);
+    res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" });
+    res.json({ success: true, message: "Logged out" });
+  } catch (err) {
+    next(err);
+  }
 }

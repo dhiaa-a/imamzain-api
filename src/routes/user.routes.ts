@@ -6,16 +6,14 @@ import {
   updateUserActive,
   updateUserRoles,
 } from "../controllers/user.controller";
+import { authorize } from "../middlewares/auth.middleware";
 
 const userRouter = Router();
 
 // these are now correctly typed RequestHandlers
 
  
-userRouter.get("/", getAllUsers);
-userRouter.get("/:id", getUserById);
-userRouter.post("/", createUser);
-userRouter.patch("/:id/active", updateUserActive);
-userRouter.put("/:id/roles", updateUserRoles);
+userRouter.get("/", authorize("READ_USER"), getAllUsers);
+userRouter.get("/:id",authorize("READ_USER"), getUserById);
 
 export default userRouter;

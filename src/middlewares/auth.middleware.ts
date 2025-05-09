@@ -1,4 +1,4 @@
-// src/middlewares/jwt.middleware.ts
+// src/middlewares/auth.middleware.ts
 
 import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
@@ -10,6 +10,7 @@ export interface AuthRequest extends Request {
     id: number;
     username: string;
     roles: string[];
+    permissions: string[];
   };
 }
 
@@ -17,22 +18,24 @@ interface TokenPayload extends JwtPayload {
   userId: number;
 }
 
-// helper: extract token from header
-function getToken(req: Request): string | null {
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
+function extractToken(req: Request): string | null {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith("Bearer ")) {
+    return auth.slice(7);
   }
   return null;
 }
 
-// 1) Verify access token middleware
-export async function verifyAccessToken(
-  req: Request,
+/**
+ * 1) Authenticate user by verifying JWT, loading roles & permissions,
+ *    and attaching them to req.user
+ */
+export async function authenticateJWT(
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  const token = getToken(req);
+  const token = extractToken(req);
   if (!token) {
     res.status(401).json({
       success: false,
@@ -41,30 +44,10 @@ export async function verifyAccessToken(
     return;
   }
 
+  let payload: TokenPayload;
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as TokenPayload;
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      include: { roles: { include: { role: true } } },
-    });
-
-    if (!user || !user.isActive) {
-      res.status(403).json({
-        success: false,
-        error: { code: "FORBIDDEN", message: "User not found or inactive" },
-      });
-      return;
-    }
-
-    // attach user to request
-    (req as AuthRequest).user = {
-      id: user.id,
-      username: user.username,
-      roles: user.roles.map((ur) => ur.role.name),
-    };
-    next();
+    payload = jwt.verify(token, env.JWT_SECRET) as TokenPayload;
   } catch (err) {
-    console.error("JWT verification failed:", err);
     const message =
       err instanceof jwt.TokenExpiredError ? "Token expired" : "Invalid token";
     res.status(403).json({
@@ -73,21 +56,80 @@ export async function verifyAccessToken(
     });
     return;
   }
+
+  // fetch user with roles & permissions
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    include: {
+      roles: {
+        include: {
+          role: {
+            include: {
+              rolePermissions: {
+                include: { permission: true },
+              },
+            },
+          },
+        },
+      },
+      groups: {
+        include: {
+          group: {
+            include: {
+              groupPermissions: {
+                include: { permission: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user || !user.isActive) {
+    res.status(403).json({
+      success: false,
+      error: { code: "FORBIDDEN", message: "User not found or inactive" },
+    });
+    return;
+  }
+
+  // collect role names
+  const roles = user.roles.map((ur) => ur.role.name);
+
+  // collect all permissions from roles and groups
+  const rolePerms = user.roles.flatMap((ur) =>
+    ur.role.rolePermissions.map((rp) => rp.permission.name)
+  );
+  const groupPerms = user.groups.flatMap((gm) =>
+    gm.group.groupPermissions.map((gp) => gp.permission.name)
+  );
+  const permissions = Array.from(new Set([...rolePerms, ...groupPerms]));
+
+  // attach to request
+  req.user = {
+    id: user.id,
+    username: user.username,
+    roles,
+    permissions,
+  };
+
+  next();
 }
 
-// 2) Role‑based authorization middleware
-export function authorizeRoles(...allowed: string[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const authReq = req as AuthRequest;
-    if (!authReq.user) {
+/**
+ * 2) Authorize: ensure the authenticated user has the given permission
+ */
+export function authorize(permission: string) {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
       res.status(401).json({
         success: false,
         error: { code: "UNAUTHORIZED", message: "Not authenticated" },
       });
       return;
     }
-    const hasRole = authReq.user.roles.some((r) => allowed.includes(r));
-    if (!hasRole) {
+    if (!req.user.permissions.includes(permission)) {
       res.status(403).json({
         success: false,
         error: { code: "FORBIDDEN", message: "Insufficient permissions" },

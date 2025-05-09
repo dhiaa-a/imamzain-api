@@ -5,8 +5,8 @@ import YAML from "yamljs";
 
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
-import { errorHandler } from "./middlewares/error.middleware";
-import { verifyAccessToken } from "./middlewares/auth.middleware";
+import { errorHandler } from "./middlewares/error.middleware";  
+import { authenticateJWT } from "./middlewares/auth.middleware";
 
 const app = express();
 
@@ -25,25 +25,12 @@ if (env.NODE_ENV !== "production") {
   console.log(`🔎 Swagger UI enabled at http://localhost:${env.PORT}/docs`);
 }
 
-// 4) Mount API routes
+// 4) auth routes
 app.use("/api/v1/auth", authRoutes);
-
-
-app.use("/api/v1/users", verifyAccessToken, userRoutes);
-
-
-// …mount other routers here…
-
-// 5) 404 handler
-// app.use((req, res) =>
-//   res.status(404).json({
-//     success: false,
-//     error: {
-//       code: "NOT_FOUND",
-//       message: `No route for ${req.method} ${req.originalUrl}`,
-//     },
-//   })
-// );
+ 
+// protect all routes after this middleware
+app.use(authenticateJWT);
+app.use("/api/v1/users", userRoutes);
 
 // 6) Global error handler
 app.use(errorHandler);
