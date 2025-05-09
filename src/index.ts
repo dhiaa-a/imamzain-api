@@ -6,6 +6,7 @@ import YAML from "yamljs";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import { errorHandler } from "./middlewares/error.middleware";
+import { verifyAccessToken } from "./middlewares/auth.middleware";
 
 const app = express();
 
@@ -26,7 +27,11 @@ if (env.NODE_ENV !== "production") {
 
 // 4) Mount API routes
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/users", userRoutes);
+
+
+app.use("/api/v1/users", verifyAccessToken, userRoutes);
+
+
 // …mount other routers here…
 
 // 5) 404 handler

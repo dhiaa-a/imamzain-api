@@ -18,9 +18,13 @@ const EnvSchema = z.object({
     .refine((n) => !Number.isNaN(n), { message: "PORT must be a number" })
     .default("3000"),
   DATABASE_URL: z.string().url(),
-  JWT_SECRET: z.string().min(20, "JWT_SECRET must be at least 32 chars"),
-//   MAIL_API_KEY: z.string().min(1),
-//   MAIL_FROM: z.string().email(),
+  JWT_SECRET: z.string().min(20, "JWT_SECRET must be at least 20 chars"),
+  ACCESS_TOKEN_EXPIRES_IN: z.any().default("15m"),
+  REFRESH_TOKEN_EXPIRES_IN: z.any().default("1d"),
+  REFRESH_TOKEN_SECRET: z
+    .any() ,
+  //   MAIL_API_KEY: z.string().min(1),
+  //   MAIL_FROM: z.string().email(),
 });
 
 // 3. parse & validate process.env
@@ -36,6 +40,9 @@ export const env = {
   PORT: parsed.data.PORT,
   DATABASE_URL: parsed.data.DATABASE_URL,
   JWT_SECRET: parsed.data.JWT_SECRET,
-//   MAIL_API_KEY: parsed.data.MAIL_API_KEY,
-//   MAIL_FROM: parsed.data.MAIL_FROM,
+  ACCESS_TOKEN_EXPIRES_IN: parsed.data.ACCESS_TOKEN_EXPIRES_IN,
+  REFRESH_TOKEN_EXPIRES_IN: parsed.data.REFRESH_TOKEN_EXPIRES_IN,
+  REFRESH_TOKEN_SECRET: parsed.data.REFRESH_TOKEN_SECRET,
+  //   MAIL_API_KEY: parsed.data.MAIL_API_KEY,
+  //   MAIL_FROM: parsed.data.MAIL_FROM,
 } as const;

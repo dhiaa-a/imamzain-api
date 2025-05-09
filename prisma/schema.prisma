@@ -34,6 +34,7 @@ model User {
   activityLogs  ActivityLog[]
   roles         UserRole[]
   groups        GroupMember[]
+  refreshToken        RefreshToken[]
 }
 
 model UserProfile {
@@ -266,4 +267,12 @@ model ArticleAttachment {
   path       String
 
   article    Article  @relation(fields: [articleId], references: [id])
+}
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  token      String   @unique
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  createdAt  DateTime @default(now())
 }

@@ -12,29 +12,74 @@ export async function getAllUsers(_req: Request, res: Response, next: NextFuncti
     next(err);
   }
 }
-
-export async function getUserById(req: Request, res: Response, next: NextFunction): Promise<any> {
+ 
+export async function getUserById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   const id = Number(req.params.id);
   if (Number.isNaN(id)) {
-    return res
+    res
       .status(400)
-      .json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid user ID" } });
+      .json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid user ID" },
+      });
+    return;
   }
+
   try {
     const user = await prisma.user.findUnique({
       where: { id },
-      include: { roles: { include: { role: true } }, profile: true },
+      include: {
+        profile: true,
+        roles: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
     });
+
     if (!user) {
-      return res
+      res
         .status(404)
-        .json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
+        .json({
+          success: false,
+          error: { code: "NOT_FOUND", message: "User not found" },
+        });
+      return;
     }
-    res.json({ success: true, data: user });
+
+    // transform roles to include a simple permissions array
+    const permissions = user.roles.map((ur) =>   ur.role.rolePermissions.map((rp) => rp.permission.name  ) );
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        profile: user.profile,
+        roles:  user.roles.map((ur) => ur.role.name),
+        permissions: permissions 
+      },
+    });
   } catch (err) {
     next(err);
   }
 }
+
 
 export async function createUser(req: Request, res: Response, next: NextFunction): Promise<any> {
   const { email, username, password, roles: roleIds } = req.body;

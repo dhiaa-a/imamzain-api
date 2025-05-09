@@ -1,5 +1,4 @@
-import { Router } from "express";
-import { authenticateJWT, authorize } from "../middlewares/auth.middleware";
+import { Router } from "express"; 
 import {
   createUser,
   getAllUsers,
@@ -11,9 +10,8 @@ import {
 const userRouter = Router();
 
 // these are now correctly typed RequestHandlers
-userRouter.use(authenticateJWT);
-userRouter.use(authorize("SUPER_ADMIN"));
 
+ 
 userRouter.get("/", getAllUsers);
 userRouter.get("/:id", getUserById);
 userRouter.post("/", createUser);
