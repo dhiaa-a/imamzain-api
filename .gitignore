@@ -1,3 +1,38 @@
-node_modules
-# Keep environment variables out of version control
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# Compiled files (if using TypeScript)
+dist/
+build/
+*.tsbuildinfo
+
+# VS Code
+.vscode/
+
+# Optional: local database dumps
+*.sqlite
+*.sqlite3
+
+# Ignore local overrides
+*.local
+
+# Ignore uploads (optional)
+uploads/
