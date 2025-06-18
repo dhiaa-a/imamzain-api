@@ -1,25 +1,34 @@
 openapi: 3.0.0
 info:
   title: Imam Zain API
-  version: 1.1.0
+  version: 2.0.0
   description: |
     API documentation for the Imam Zain digital platform. This API provides endpoints for managing
-    books, research papers, blog posts, galleries, attachments, images, YouTube playlists, and store
-    locations for an informational platform about Islamic scholarship.
+    articles with multi-language support, attachments, file uploads, and user authentication.
+    
+    ## Features
+    - Multi-language article management
+    - File upload and attachment system
+    - JWT-based authentication
+    - Role-based authorization
+    - Comprehensive error handling
+    
   contact:
     name: API Support
-    email: support@yourdomain.com
-    url: https://yourdomain.com/support
+    email: support@imamzain.com
+    url: https://imamzain.com/support
   license:
     name: Proprietary
-    url: https://yourdomain.com/license
+    url: https://imamzain.com/license
+
 servers:
-  - url: https://yourdomain.com/api/v1
+  - url: https://api.imamzain.com/api/v1
     description: Production server
-  - url: https://staging.yourdomain.com/api/v1
+  - url: https://staging-api.imamzain.com/api/v1
     description: Staging server
-  - url: https://dev.yourdomain.com/api/v1
+  - url: http://localhost:8000/api/v1
     description: Development server
+
 components:
   securitySchemes:
     bearerAuth:
@@ -27,74 +36,215 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: JWT token obtained from the authentication endpoint
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: refreshToken
+      description: HTTP-only refresh token cookie
+
   responses:
     BadRequest:
-      description: Bad request
+      description: Bad request - Invalid input data
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "BAD_REQUEST"
+              message: "Invalid input data"
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      details:
+                        type: array
+                        items:
+                          type: string
+          example:
+            success: false
+            error:
+              code: "VALIDATION_ERROR"
+              message: "Validation failed"
+              details:
+                - "Title is required"
+                - "CategoryId must be a number"
+
     Unauthorized:
       description: Authentication required or invalid token
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "UNAUTHORIZED"
+              message: "No token provided"
+
     Forbidden:
       description: Insufficient permissions
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "FORBIDDEN"
+              message: "Insufficient permissions"
+
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "NOT_FOUND"
+              message: "Article not found"
+
+    Conflict:
+      description: Resource conflict (duplicate)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "CONFLICT"
+              message: "Article with this slug already exists"
+
     InternalError:
       description: Internal server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: "INTERNAL_ERROR"
+              message: "Internal server error"
+
   parameters:
+    LanguageParam:
+      name: lang
+      in: path
+      required: true
+      description: Language code (e.g., 'en', 'ar', 'fa')
+      schema:
+        type: string
+        pattern: '^[a-z]{2}$'
+        example: "en"
+
     PageParam:
       name: page
       in: query
-      description: Page number (for pagination)
+      description: Page number for pagination
       schema:
         type: integer
         minimum: 1
         default: 1
+        example: 1
+
     LimitParam:
       name: limit
       in: query
-      description: Items per page (for pagination)
+      description: Number of items per page
       schema:
         type: integer
         minimum: 1
         maximum: 100
         default: 10
-    SortParam:
-      name: sort
+        example: 10
+
+    SearchParam:
+      name: search
       in: query
-      description: Sort field
+      description: Search term for filtering
       schema:
         type: string
-        enum: [title, author, printDate, views, date, lastUpdate]
-        default: title
-    OrderParam:
-      name: order
+        example: "islamic philosophy"
+
+    CategoryIdParam:
+      name: categoryId
       in: query
-      description: Sort order
+      description: Filter by category ID
+      schema:
+        type: integer
+        minimum: 1
+        example: 1
+
+    ArticleIdParam:
+      name: id
+      in: path
+      required: true
+      description: Article ID
+      schema:
+        type: integer
+        minimum: 1
+        example: 123
+
+    SlugParam:
+      name: slug
+      in: path
+      required: true
+      description: Article slug
       schema:
         type: string
-        enum: [asc, desc]
-        default: asc
+        pattern: '^[a-z0-9-]+$'
+        example: "understanding-islamic-philosophy"
+
+    AttachmentIdParam:
+      name: id
+      in: path
+      required: true
+      description: Attachment ID
+      schema:
+        type: integer
+        minimum: 1
+        example: 456
+
+    FilenameParam:
+      name: filename
+      in: path
+      required: true
+      description: File name
+      schema:
+        type: string
+        example: "document.pdf"
+
+    UserIdParam:
+      name: id
+      in: path
+      required: true
+      description: User ID
+      schema:
+        type: integer
+        minimum: 1
+        example: 789
+
   schemas:
+    # Base Response Schemas
     StandardResponse:
       type: object
+      required:
+        - success
+        - data
       properties:
         success:
           type: boolean
@@ -103,387 +253,534 @@ components:
           type: object
         message:
           type: string
-          example: Operation completed successfully
+          example: "Operation completed successfully"
+
     ErrorResponse:
       type: object
+      required:
+        - success
+        - error
       properties:
         success:
           type: boolean
           example: false
         error:
           type: object
+          required:
+            - code
+            - message
           properties:
             code:
               type: string
-              example: RESOURCE_NOT_FOUND
+              example: "NOT_FOUND"
             message:
               type: string
-              example: The requested resource could not be found
-    Pagination:
+              example: "Resource not found"
+
+    PaginationResponse:
       type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
       properties:
-        total:
-          type: integer
-          example: 253
         page:
           type: integer
-          example: 3
+          example: 1
         limit:
           type: integer
-          example: 20
-        pages:
+          example: 10
+        total:
           type: integer
-          example: 13
-    Book:
+          example: 150
+        totalPages:
+          type: integer
+          example: 15
+
+    # Authentication Schemas
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "admin"
+        password:
+          type: string
+          format: password
+          example: "password123"
+
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/StandardResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  $ref: '#/components/schemas/UserInfo'
+
+    RefreshTokenResponse:
+      allOf:
+        - $ref: '#/components/schemas/StandardResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    # User Schemas
+    UserInfo:
       type: object
       properties:
         id:
           type: integer
-          minimum: 1
-          example: 42
-        slug:
-          type: string
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
-          example: nahj-al-balagha-commentary
-        title:
-          type: string
-          example: Commentary on Nahj al-Balagha
-        author:
-          type: string
-          example: Sheikh Muhammad Abduh
-        otherNames:
-          type: array
-          items:
-            type: string
-          example: [Muhammad Mohiuddin, Ali Raza]
-        printHouse:
-          type: string
-          example: Dar al-Hikma
-        printDate:
-          type: string
-          format: date
-          example: 2018-06-12
-        language:
-          type: string
-          example: Arabic
-        pages:
-          type: integer
-          minimum: 1
-          example: 423
-        parts:
-          type: integer
-          minimum: 1
-          example: 2
-        views:
-          type: integer
-          minimum: 0
-          example: 1834
-        image:
-          type: string
-          example: /images/books/nahj-al-balagha-commentary.jpg
-        pdf:
-          type: string
-          example: /files/books/nahj-al-balagha-commentary.pdf
-        partNumber:
-          type: integer
-          minimum: 1
           example: 1
-        totalParts:
-          type: integer
-          minimum: 1
-          example: 3
-        series:
+        username:
           type: string
-          example: Classical Commentaries
-    BookCreate:
-      type: object
-      required: [title, author]
-      properties:
-        title:
+          example: "admin"
+        email:
           type: string
-          example: Commentary on Nahj al-Balagha
-        author:
-          type: string
-          example: Sheikh Muhammad Abduh
-        otherNames:
+          format: email
+          example: "admin@imamzain.com"
+        roles:
           type: array
           items:
             type: string
-        printHouse:
-          type: string
-        printDate:
-          type: string
-          format: date
-        language:
-          type: string
-        pages:
-          type: integer
-          minimum: 1
-        parts:
-          type: integer
-          minimum: 1
-        image:
-          type: string
-        pdf:
-          type: string
-        partNumber:
-          type: integer
-          minimum: 1
-        totalParts:
-          type: integer
-          minimum: 1
-        series:
-          type: string
-    Post:
+          example: ["admin", "editor"]
+
+    User:
       type: object
       properties:
         id:
           type: integer
-          minimum: 1
-          example: 157
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        profile:
+          type: object
+          nullable: true
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["editor"]
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["CREATE_ARTICLE", "UPDATE_ARTICLE"]
+
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - username
+        - password
+        - roles
+      properties:
+        email:
+          type: string
+          format: email
+          example: "newuser@example.com"
+        username:
+          type: string
+          example: "newuser"
+        password:
+          type: string
+          format: password
+          example: "securepassword123"
+        roles:
+          type: array
+          items:
+            type: integer
+          example: [2, 3]
+
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - isActive
+      properties:
+        isActive:
+          type: boolean
+          example: false
+
+    UpdateUserRolesRequest:
+      type: object
+      required:
+        - roles
+      properties:
+        roles:
+          type: array
+          items:
+            type: integer
+          example: [1, 2]
+
+    # Article Schemas
+    Language:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "en"
+        name:
+          type: string
+          example: "English"
+        nativeName:
+          type: string
+          example: "English"
+
+    ArticleCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
         slug:
           type: string
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
-          example: understanding-islamic-philosophy
-        image:
+          example: "philosophy"
+        name:
           type: string
-          example: /images/posts/islamic-philosophy.jpg
+          example: "Philosophy"
+
+    ArticleTranslation:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        articleId:
+          type: integer
+          example: 123
+        languageCode:
+          type: string
+          example: "en"
+        isDefault:
+          type: boolean
+          example: true
         title:
           type: string
-          example: Understanding Islamic Philosophy
+          example: "Understanding Islamic Philosophy"
         summary:
           type: string
-          example: An exploration of the foundational concepts in Islamic philosophy
+          example: "An exploration of the foundational concepts in Islamic philosophy"
         body:
-          type: object
-          properties:
-            lede:
-              type: string
-            content:
-              type: string
-            tail:
-              type: string
+          type: string
+          example: "Full article content here..."
+        language:
+          $ref: '#/components/schemas/Language'
+
+    CreateArticleTranslation:
+      type: object
+      required:
+        - languageCode
+        - isDefault
+        - title
+        - summary
+        - body
+      properties:
+        languageCode:
+          type: string
+          example: "en"
+        isDefault:
+          type: boolean
+          example: true
+        title:
+          type: string
+          example: "Understanding Islamic Philosophy"
+        summary:
+          type: string
+          example: "An exploration of the foundational concepts"
+        body:
+          type: string
+          example: "Full article content..."
+
+    UpdateArticleTranslation:
+      type: object
+      required:
+        - languageCode
+        - title
+        - summary
+        - body
+      properties:
+        id:
+          type: integer
+          example: 1
+        languageCode:
+          type: string
+          example: "en"
+        isDefault:
+          type: boolean
+          example: true
+        title:
+          type: string
+          example: "Updated Article Title"
+        summary:
+          type: string
+          example: "Updated summary"
+        body:
+          type: string
+          example: "Updated content..."
+
+    ArticleAttachmentRequest:
+      type: object
+      required:
+        - attachmentId
+        - type
+        - order
+      properties:
+        attachmentId:
+          type: integer
+          example: 456
+        type:
+          type: string
+          enum: ["image", "attachment", "other"]
+          example: "image"
+        order:
+          type: integer
+          example: 1
+
+    ArticleAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        articleId:
+          type: integer
+          example: 123
+        attachmentId:
+          type: integer
+          example: 456
+        type:
+          type: string
+          enum: ["image", "attachment", "other"]
+          example: "image"
+        order:
+          type: integer
+          example: 1
+        attachment:
+          $ref: '#/components/schemas/Attachment'
+
+    Article:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        slug:
+          type: string
+          example: "understanding-islamic-philosophy"
         views:
           type: integer
-          minimum: 0
-          example: 3421
+          example: 1500
         date:
           type: string
-          format: date
-          example: 2023-01-15
-        lastUpdate:
-          type: string
-          format: date
-          example: 2023-02-10
-        category:
-          type: string
-          example: Philosophy
-        attachments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Attachment'
-    PostCreate:
-      type: object
-      required: [title, summary, body, category]
-      properties:
-        title:
-          type: string
-        summary:
-          type: string
-        body:
-          type: object
-          properties:
-            lede:
-              type: string
-            content:
-              type: string
-            tail:
-              type: string
-        image:
-          type: string
-        category:
-          type: string
-        attachments:
-          type: array
-          items:
-            type: integer
-    Research:
-      type: object
-      properties:
-        id:
+          format: date-time
+          example: "2024-01-15T00:00:00Z"
+        categoryId:
           type: integer
-          minimum: 1
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        category:
+          $ref: '#/components/schemas/ArticleCategory'
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleTranslation'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArticleAttachment'
+
+    CreateArticleRequest:
+      type: object
+      required:
+        - categoryId
+        - date
+        - translations
+      properties:
         slug:
           type: string
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
-        title:
+          pattern: '^[a-z0-9-]+$'
+          example: "understanding-islamic-philosophy"
+          description: "Optional - will be auto-generated from title if not provided"
+        categoryId:
+          type: integer
+          example: 1
+        date:
           type: string
-        description:
-          type: string
-        author:
-          type: string
-        otherNames:
+          format: date-time
+          example: "2024-01-15T00:00:00Z"
+        translations:
           type: array
           items:
-            type: string
-        printHouse:
-          type: string
-        printDate:
-          type: string
-          format: date
-        language:
-          type: string
-        pages:
-          type: integer
-          minimum: 1
-        parts:
-          type: integer
-          minimum: 1
-        views:
-          type: integer
-          minimum: 0
-        category:
-          type: string
-        pdf:
-          type: string
-    ResearchCreate:
-      type: object
-      required: [title, description, author]
-      properties:
-        title:
-          type: string
-        description:
-          type: string
-        author:
-          type: string
-        otherNames:
+            $ref: '#/components/schemas/CreateArticleTranslation'
+          minItems: 1
+        attachments:
           type: array
           items:
-            type: string
-        printHouse:
-          type: string
-        printDate:
-          type: string
-          format: date
-        language:
-          type: string
-        pages:
-          type: integer
-          minimum: 1
-        parts:
-          type: integer
-          minimum: 1
-        category:
-          type: string
-        pdf:
-          type: string
-    Gallery:
+            $ref: '#/components/schemas/ArticleAttachmentRequest'
+          description: "Optional attachments"
+
+    UpdateArticleRequest:
       type: object
       properties:
-        id:
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          example: "updated-article-slug"
+        categoryId:
           type: integer
-          minimum: 1
-        title:
+          example: 2
+        date:
           type: string
-        images:
+          format: date-time
+          example: "2024-01-16T00:00:00Z"
+        translations:
           type: array
           items:
-            $ref: '#/components/schemas/Image'
-    GalleryCreate:
-      type: object
-      required: [title, images]
-      properties:
-        title:
-          type: string
-        images:
+            $ref: '#/components/schemas/UpdateArticleTranslation'
+        attachments:
           type: array
           items:
-            type: integer
+            $ref: '#/components/schemas/ArticleAttachmentRequest'
+
+    # Attachment Schemas
     Attachment:
       type: object
       properties:
         id:
           type: integer
-          minimum: 1
-        path:
+          example: 456
+        originalName:
           type: string
+          example: "document.pdf"
         fileName:
           type: string
-        mimeType:
-          type: string
-        size:
-          type: integer
-          minimum: 0
-    Image:
-      type: object
-      properties:
-        id:
-          type: integer
-          minimum: 1
+          example: "abc123-document.pdf"
         path:
           type: string
-        alt:
+          example: "abc123-document.pdf"
+        mimeType:
           type: string
-        width:
+          example: "application/pdf"
+        size:
           type: integer
-          minimum: 1
-        height:
-          type: integer
-          minimum: 1
-    Playlist:
-      type: object
-      properties:
-        playlistId:
+          example: 2048576
+        disk:
           type: string
-        title:
+          example: "local"
+        collection:
           type: string
-        videos:
-          type: array
-          items:
-            $ref: '#/components/schemas/Video'
-    Video:
-      type: object
-      properties:
-        title:
+          nullable: true
+          example: "articles"
+        altText:
           type: string
+          nullable: true
+          example: "Document description"
+        metadata:
+          type: object
+          example: {}
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
         url:
           type: string
-          format: uri
-        date:
-          type: string
-          format: date
-        desc:
-          type: string
-        thumbnail:
-          type: string
-          format: uri
-        slug:
-          type: string
-          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
-    Store:
+          example: "/uploads/abc123-document.pdf"
+
+    UpdateAttachmentRequest:
       type: object
       properties:
-        city:
+        originalName:
           type: string
-        sellpoints:
-          type: array
-          items:
-            $ref: '#/components/schemas/Sellpoint'
-    Sellpoint:
+          example: "updated-document.pdf"
+        fileName:
+          type: string
+          example: "new-filename.pdf"
+        path:
+          type: string
+          example: "new-path.pdf"
+        mimeType:
+          type: string
+          example: "application/pdf"
+        size:
+          type: integer
+          minimum: 1
+          example: 2048576
+        disk:
+          type: string
+          example: "local"
+        collection:
+          type: string
+          nullable: true
+          example: "documents"
+        altText:
+          type: string
+          nullable: true
+          example: "Updated description"
+        metadata:
+          type: object
+          example: {}
+
+    FileUploadRequest:
       type: object
       properties:
-        name:
+        file:
           type: string
-        location:
+          format: binary
+          description: "File to upload (max 10MB)"
+        collection:
           type: string
-        phone:
+          example: "articles"
+        altText:
           type: string
-        email:
+          example: "Image description"
+        metadata:
           type: string
-          format: email
-        hours:
-          type: string
+          example: '{"category": "header-image"}'
+          description: "JSON string of metadata"
+
 paths:
+  # Authentication Endpoints
   /auth/login:
     post:
       summary: User login
@@ -494,94 +791,133 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [username, password]
-              properties:
-                username:
-                  type: string
-                password:
-                  type: string
-                  format: password
+              $ref: '#/components/schemas/LoginRequest'
       responses:
         '200':
           description: Login successful
+          headers:
+            Set-Cookie:
+              description: HTTP-only refresh token cookie
+              schema:
+                type: string
+                example: "refreshToken=abc123; HttpOnly; Secure; SameSite=Strict"
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          token:
-                            type: string
-                          user:
-                            type: object
-                            properties:
-                              id:
-                                type: integer
-                              username:
-                                type: string
-                              roles:
-                                type: array
-                                items:
-                                  type: string
+                $ref: '#/components/schemas/LoginResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
   /auth/refresh:
     post:
       summary: Refresh JWT token
       tags: [Authentication]
+      security:
+        - cookieAuth: []
       responses:
         '200':
           description: Token refreshed successfully
           content:
             application/json:
               schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /auth/logout:
+    post:
+      summary: User logout
+      tags: [Authentication]
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Logged out"
+
+  # User Management Endpoints
+  /users:
+    get:
+      summary: Get all users
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
                 allOf:
                   - $ref: '#/components/schemas/StandardResponse'
                   - type: object
                     properties:
                       data:
-                        type: object
-                        properties:
-                          token:
-                            type: string
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /books:
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     get:
-      summary: Get all books
-      tags: [Books]
+      summary: Get user by ID
+      tags: [Users]
       security:
         - bearerAuth: []
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Article Endpoints
+  /{lang}/articles:
+    parameters:
+      - $ref: '#/components/parameters/LanguageParam'
+    get:
+      summary: Get articles with filtering and pagination
+      tags: [Articles]
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
-        - in: query
-          name: author
-          schema:
-            type: string
-          description: Filter by author
-        - in: query
-          name: language
-          schema:
-            type: string
-          description: Filter by language
-        - in: query
-          name: series
-          schema:
-            type: string
-          description: Filter by series
-        - $ref: '#/components/parameters/SortParam'
-        - $ref: '#/components/parameters/OrderParam'
+        - $ref: '#/components/parameters/CategoryIdParam'
+        - $ref: '#/components/parameters/SearchParam'
       responses:
         '200':
-          description: Paginated list of books
+          description: Paginated list of articles
           content:
             application/json:
               schema:
@@ -590,23 +926,17 @@ paths:
                   - type: object
                     properties:
                       data:
-                        type: object
-                        properties:
-                          books:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/Book'
-                          pagination:
-                            $ref: '#/components/schemas/Pagination'
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Article'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
+
     post:
-      summary: Create a new book
-      tags: [Books]
+      summary: Create new article
+      tags: [Articles]
       security:
         - bearerAuth: []
       requestBody:
@@ -614,10 +944,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BookCreate'
+              $ref: '#/components/schemas/CreateArticleRequest'
       responses:
         '201':
-          description: Book created successfully
+          description: Article created successfully
           content:
             application/json:
               schema:
@@ -626,35 +956,33 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Book'
+                        $ref: '#/components/schemas/Article'
                       message:
                         type: string
-                        example: Book created successfully
+                        example: "Article created with auto-generated slug: understanding-philosophy"
         '400':
-          $ref: '#/components/responses/BadRequest'
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /books/{bookId}:
+        '404':
+          description: Category or attachment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{lang}/articles/{id}:
     parameters:
-      - name: bookId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Book identifier
+      - $ref: '#/components/parameters/LanguageParam'
+      - $ref: '#/components/parameters/ArticleIdParam'
     get:
-      summary: Get a book by ID
-      tags: [Books]
-      security:
-        - bearerAuth: []
+      summary: Get article by ID
+      tags: [Articles]
       responses:
         '200':
-          description: Book retrieved successfully
+          description: Article details
           content:
             application/json:
               schema:
@@ -663,18 +991,15 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Book'
+                        $ref: '#/components/schemas/Article'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+
     put:
-      summary: Update a book
-      tags: [Books]
+      summary: Update article
+      tags: [Articles]
       security:
         - bearerAuth: []
       requestBody:
@@ -682,10 +1007,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BookCreate'
+              $ref: '#/components/schemas/UpdateArticleRequest'
       responses:
         '200':
-          description: Book updated successfully
+          description: Article updated successfully
           content:
             application/json:
               schema:
@@ -694,128 +1019,55 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Book'
-                      message:
-                        type: string
-                        example: Book updated successfully
+                        $ref: '#/components/schemas/Article'
         '400':
-          $ref: '#/components/responses/BadRequest'
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
     delete:
-      summary: Delete a book
-      tags: [Books]
+      summary: Delete article
+      tags: [Articles]
       security:
         - bearerAuth: []
       responses:
-        '204':
-          description: Book deleted successfully (no content)
+        '200':
+          description: Article deleted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/StandardResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Article deleted successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /posts:
-    get:
-      summary: Get all posts
-      tags: [Posts]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - in: query
-          name: category
-          schema:
-            type: string
-          description: Filter by category
-        - $ref: '#/components/parameters/SortParam'
-        - $ref: '#/components/parameters/OrderParam'
-      responses:
-        '200':
-          description: Paginated list of posts
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          posts:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/Post'
-                          pagination:
-                            $ref: '#/components/schemas/Pagination'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    post:
-      summary: Create a new post
-      tags: [Posts]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PostCreate'
-      responses:
-        '201':
-          description: Post created successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Post'
-                      message:
-                        type: string
-                        example: Post created successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /posts/{postId}:
+
+  /{lang}/articles/slug/{slug}:
     parameters:
-      - name: postId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Post identifier
+      - $ref: '#/components/parameters/LanguageParam'
+      - $ref: '#/components/parameters/SlugParam'
     get:
-      summary: Get a post by ID
-      tags: [Posts]
-      security:
-        - bearerAuth: []
+      summary: Get article by slug
+      tags: [Articles]
       responses:
         '200':
-          description: Post retrieved successfully
+          description: Article details (views automatically incremented)
           content:
             application/json:
               schema:
@@ -824,395 +1076,37 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Post'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                        $ref: '#/components/schemas/Article'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    put:
-      summary: Update a post
-      tags: [Posts]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PostCreate'
-      responses:
-        '200':
-          description: Post updated successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Post'
-                      message:
-                        type: string
-                        example: Post updated successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    delete:
-      summary: Delete a post
-      tags: [Posts]
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Post deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /research:
-    get:
-      summary: Get all research papers
-      tags: [Research]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - in: query
-          name: category
-          schema:
-            type: string
-          description: Filter by research category
-        - $ref: '#/components/parameters/SortParam'
-        - $ref: '#/components/parameters/OrderParam'
-      responses:
-        '200':
-          description: Paginated list of research papers
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          research:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/Research'
-                          pagination:
-                            $ref: '#/components/schemas/Pagination'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    post:
-      summary: Create a research paper
-      tags: [Research]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResearchCreate'
-      responses:
-        '201':
-          description: Research created successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Research'
-                      message:
-                        type: string
-                        example: Research created successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /research/{researchId}:
-    parameters:
-      - name: researchId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Research identifier
-    get:
-      summary: Get a research paper by ID
-      tags: [Research]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Research retrieved successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Research'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    put:
-      summary: Update a research paper
-      tags: [Research]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResearchCreate'
-      responses:
-        '200':
-          description: Research updated successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Research'
-                      message:
-                        type: string
-                        example: Research updated successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    delete:
-      summary: Delete a research paper
-      tags: [Research]
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Research deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /galleries:
-    get:
-      summary: Get all galleries
-      tags: [Galleries]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/SortParam'
-        - $ref: '#/components/parameters/OrderParam'
-      responses:
-        '200':
-          description: Paginated list of galleries
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          galleries:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/Gallery'
-                          pagination:
-                            $ref: '#/components/schemas/Pagination'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    post:
-      summary: Create a gallery
-      tags: [Galleries]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GalleryCreate'
-      responses:
-        '201':
-          description: Gallery created successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Gallery'
-                      message:
-                        type: string
-                        example: Gallery created successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /galleries/{galleryId}:
-    parameters:
-      - name: galleryId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Gallery identifier
-    get:
-      summary: Get a gallery by ID
-      tags: [Galleries]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Gallery retrieved successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Gallery'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    put:
-      summary: Update a gallery
-      tags: [Galleries]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GalleryCreate'
-      responses:
-        '200':
-          description: Gallery updated successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Gallery'
-                      message:
-                        type: string
-                        example: Gallery updated successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    delete:
-      summary: Delete a gallery
-      tags: [Galleries]
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Gallery deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+
+  # Attachment Endpoints
   /attachments:
     get:
-      summary: Get all attachments
+      summary: Get all attachments with filtering
       tags: [Attachments]
-      security:
-        - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/SortParam'
-        - $ref: '#/components/parameters/OrderParam'
+        - name: mimeType
+          in: query
+          description: Filter by MIME type
+          schema:
+            type: string
+            example: "image/jpeg"
+        - name: collection
+          in: query
+          description: Filter by collection
+          schema:
+            type: string
+            example: "articles"
+        - name: disk
+          in: query
+          description: Filter by disk type
+          schema:
+            type: string
+            example: "local"
+        - $ref: '#/components/parameters/SearchParam'
       responses:
         '200':
           description: Paginated list of attachments
@@ -1224,22 +1118,15 @@ paths:
                   - type: object
                     properties:
                       data:
-                        type: object
-                        properties:
-                          attachments:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/Attachment'
-                          pagination:
-                            $ref: '#/components/schemas/Pagination'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Attachment'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationResponse'
+
+  /attachments/upload:
     post:
-      summary: Upload an attachment
+      summary: Upload file
       tags: [Attachments]
       security:
         - bearerAuth: []
@@ -1248,14 +1135,10 @@ paths:
         content:
           multipart/form-data:
             schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
+              $ref: '#/components/schemas/FileUploadRequest'
       responses:
         '201':
-          description: Attachment uploaded successfully
+          description: File uploaded successfully
           content:
             application/json:
               schema:
@@ -1267,74 +1150,29 @@ paths:
                         $ref: '#/components/schemas/Attachment'
                       message:
                         type: string
-                        example: Attachment uploaded successfully
+                        example: "File uploaded successfully"
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '413':
-          description: Payload too large
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /attachments/{attachmentId}:
-    parameters:
-      - name: attachmentId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Attachment identifier
-    get:
-      summary: Download an attachment
-      tags: [Attachments]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Attachment binary data
-          content:
-            application/octet-stream: {}
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    delete:
-      summary: Delete an attachment
-      tags: [Attachments]
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Attachment deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /images:
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /attachments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AttachmentIdParam'
     get:
-      summary: Get all images
-      tags: [Images]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/PageParam'
-        - $ref: '#/components/parameters/LimitParam'
+      summary: Get attachment metadata
+      tags: [Attachments]
       responses:
         '200':
-          description: Paginated list of images
+          description: Attachment metadata
           content:
             application/json:
               schema:
@@ -1343,81 +1181,26 @@ paths:
                   - type: object
                     properties:
                       data:
-                        type: object
-                        properties:
-                          images:
-                            type: array
-                            items:
-                              $ref: '#/components/schemas/Image'
-                          pagination:
-                            $ref: '#/components/schemas/Pagination'
+                        $ref: '#/components/schemas/Attachment'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    post:
-      summary: Upload an image
-      tags: [Images]
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update attachment metadata
+      tags: [Attachments]
       security:
         - bearerAuth: []
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-                alt:
-                  type: string
-      responses:
-        '201':
-          description: Image uploaded successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Image'
-                      message:
-                        type: string
-                        example: Image uploaded successfully
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '413':
-          description: Payload too large
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /images/{imageId}:
-    parameters:
-      - name: imageId
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-        description: Image identifier
-    get:
-      summary: Get image metadata
-      tags: [Images]
-      security:
-        - bearerAuth: []
+              $ref: '#/components/schemas/UpdateAttachmentRequest'
       responses:
         '200':
-          description: Image metadata retrieved
+          description: Attachment updated successfully
           content:
             application/json:
               schema:
@@ -1426,40 +1209,24 @@ paths:
                   - type: object
                     properties:
                       data:
-                        $ref: '#/components/schemas/Image'
+                        $ref: '#/components/schemas/Attachment'
         '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-    delete:
-      summary: Delete an image
-      tags: [Images]
-      security:
-        - bearerAuth: []
-      responses:
-        '204':
-          description: Image deleted successfully
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /youtube/playlists:
-    get:
-      summary: Get YouTube playlists
-      tags: [YouTube]
+
+    delete:
+      summary: Delete attachment
+      tags: [Attachments]
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: List of YouTube playlists
+          description: Attachment deleted successfully
           content:
             application/json:
               schema:
@@ -1467,165 +1234,78 @@ paths:
                   - $ref: '#/components/schemas/StandardResponse'
                   - type: object
                     properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Playlist'
+                      message:
+                        type: string
+                        example: "Attachment deleted successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /youtube/playlists/{playlistId}:
-    parameters:
-      - name: playlistId
-        in: path
-        required: true
-        schema:
-          type: string
-        description: YouTube playlist ID
-    get:
-      summary: Get a single YouTube playlist
-      tags: [YouTube]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Playlist retrieved successfully
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Playlist'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /youtube/playlists/{playlistId}/videos:
-    parameters:
-      - name: playlistId
-        in: path
-        required: true
-        schema:
-          type: string
-        description: YouTube playlist ID
-    get:
-      summary: Get videos in a YouTube playlist
-      tags: [YouTube]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: List of videos in the playlist
+        '409':
+          description: Attachment is in use
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
                   - type: object
                     properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Video'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                      error:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                            example: "CONFLICT"
+                          message:
+                            type: string
+                            example: "Cannot delete attachment as it is being used by articles"
+
+  /attachments/uploads/{filename}:
+    parameters:
+      - $ref: '#/components/parameters/FilenameParam'
+    get:
+      summary: Serve uploaded file
+      tags: [Attachments]
+      description: Serves the actual file content (public access)
+      responses:
+        '200':
+          description: File content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            image/*:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
         '404':
           $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /stores:
-    get:
-      summary: Get all store locations
-      tags: [Stores]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: List of stores
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Store'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /stores/{city}:
-    parameters:
-      - name: city
-        in: path
-        required: true
-        schema:
-          type: string
-        description: City name
-    get:
-      summary: Get store details by city
-      tags: [Stores]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Store details
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        $ref: '#/components/schemas/Store'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /stores/{city}/sellpoints:
-    parameters:
-      - name: city
-        in: path
-        required: true
-        schema:
-          type: string
-        description: City name
-    get:
-      summary: Get sellpoints for a city
-      tags: [Stores]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: List of sellpoints in the city
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/StandardResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Sellpoint'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+
+# Tags for grouping endpoints
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Users
+    description: User management operations
+  - name: Articles
+    description: Multi-language article management
+  - name: Attachments
+    description: File upload and attachment management
+
+# Security requirements
 security:
   - bearerAuth: []
+
+# Additional documentation
+externalDocs:
+  description: Find more info about the API
+  url: https://imamzain.com/api-docs

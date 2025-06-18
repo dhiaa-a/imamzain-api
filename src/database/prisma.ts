@@ -1,9 +1,10 @@
 // src/prisma.ts
-import { PrismaClient } from "@prisma/client"; 
-import { env } from "../config/env";
+import { PrismaClient } from '@prisma/client';
+import { env } from '../config/env';
+ 
 
 declare global {
-  // prevent multiple instances in dev
+  // Prevent multiple instances in development mode
   var prismaClient: PrismaClient | undefined;
 }
 
@@ -12,12 +13,13 @@ export const prisma =
   new PrismaClient({
     datasources: {
       db: {
-        url: env.DATABASE_URL,    // ← now this is defined!
+        url: env.DATABASE_URL, // Replace with actual DynamoDB URL
       },
     },
-    log: ["query", "info"],
+    // log: ['query', 'info'],
+    log: [  'info'],
   });
 
-if (env.NODE_ENV !== "production") {
+if (env.NODE_ENV !== 'production') {
   global.prismaClient = prisma;
 }
