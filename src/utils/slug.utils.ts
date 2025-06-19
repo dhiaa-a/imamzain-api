@@ -1,5 +1,36 @@
 // src/utils/slug.utils.ts
 
+<<<<<<< HEAD
+export function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    // Replace Arabic/Persian/Urdu characters with transliteration or remove
+    .replace(/[^\w\s-]/g, '') // Remove special characters except word chars, spaces, hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+}
+
+export function generateUniqueSlug(baseSlug: string, existingSlugs: string[]): string {
+  let uniqueSlug = baseSlug;
+  let counter = 1;
+
+  while (existingSlugs.includes(uniqueSlug)) {
+    uniqueSlug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+
+  return uniqueSlug;
+}
+
+export function isValidSlug(slug: string): boolean {
+  // Slug should contain only lowercase letters, numbers, and hyphens
+  // Should not start or end with hyphen
+  // Should not contain consecutive hyphens
+  const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  return slugRegex.test(slug);
+=======
 /**
  * Generate a URL-friendly slug from text
  */
@@ -66,4 +97,5 @@ export function generateUniqueSlug(baseSlug: string, existingSlugs: string[]): s
  */
 export function isValidSlug(slug: string): boolean {
   return /^[a-z0-9-]+$/.test(slug) && slug.length >= 3 && !slug.startsWith('-') && !slug.endsWith('-');
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 }

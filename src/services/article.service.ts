@@ -6,6 +6,10 @@ import {
   GetArticlesQuery,
   ArticleResponse 
 } from "../types/article.types";
+<<<<<<< HEAD
+import { SupportedLanguageCode, isSupportedLanguage } from "../types/language.types";
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 import { generateSlug, generateUniqueSlug, isValidSlug } from "../utils/slug.utils";
 
 export async function createArticle(data: CreateArticleRequest): Promise<ArticleResponse> {
@@ -18,6 +22,15 @@ export async function createArticle(data: CreateArticleRequest): Promise<Article
     throw new Error("CATEGORY_NOT_FOUND");
   }
 
+<<<<<<< HEAD
+  // Validate supported languages
+  const languageCodes = data.translations.map(t => t.languageCode);
+  const unsupportedLanguages = languageCodes.filter(code => !isSupportedLanguage(code));
+  if (unsupportedLanguages.length > 0) {
+    throw new Error(`UNSUPPORTED_LANGUAGES: ${unsupportedLanguages.join(', ')}`);
+  }
+ 
+=======
   // Check if languages exist
   const languageCodes = data.translations.map(t => t.languageCode);
   const languages = await prisma.language.findMany({
@@ -28,6 +41,7 @@ export async function createArticle(data: CreateArticleRequest): Promise<Article
     throw new Error("INVALID_LANGUAGE_CODES");
   }
 
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   // Ensure only one default translation
   const defaultTranslations = data.translations.filter(t => t.isDefault);
   if (defaultTranslations.length !== 1) {
@@ -83,7 +97,12 @@ export async function createArticle(data: CreateArticleRequest): Promise<Article
     data: {
       slug: uniqueSlug,
       categoryId: data.categoryId,
+<<<<<<< HEAD
+      publishedAt: data.date ? new Date(data.date) : null,
+      isPublished: data.date ? true : false,
+=======
       date: new Date(data.date),
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       views: 0,
       translations: {
         create: data.translations.map(translation => ({
@@ -105,7 +124,20 @@ export async function createArticle(data: CreateArticleRequest): Promise<Article
       })
     },
     include: {
+<<<<<<< HEAD
+      category: {
+        include: {
+          translations: {
+            where: { isDefault: true },
+            include: {
+              language: true
+            }
+          }
+        }
+      },
+=======
       category: true,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       translations: {
         include: {
           language: true
@@ -123,11 +155,28 @@ export async function createArticle(data: CreateArticleRequest): Promise<Article
   return formatArticleResponse(article);
 }
 
+<<<<<<< HEAD
+export async function getArticleById(id: number, languageCode?: SupportedLanguageCode): Promise<ArticleResponse | null> {
+  const article = await prisma.article.findUnique({
+    where: { id },
+    include: {
+      category: {
+        include: {
+          translations: {
+            where: languageCode ? { languageCode } : { isDefault: true },
+            include: {
+              language: true
+            }
+          }
+        }
+      },
+=======
 export async function getArticleById(id: number, languageCode?: string): Promise<ArticleResponse | null> {
   const article = await prisma.article.findUnique({
     where: { id },
     include: {
       category: true,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       translations: {
         where: languageCode ? { languageCode } : {},
         include: {
@@ -147,6 +196,14 @@ export async function getArticleById(id: number, languageCode?: string): Promise
     return null;
   }
 
+<<<<<<< HEAD
+  // If no translations found for specific language, return empty translations array
+  if (languageCode && article.translations.length === 0) {
+    return formatArticleResponse({
+      ...article,
+      translations: []
+    });
+=======
   // If no translations found for specific language, get default translation
   if (languageCode && article.translations.length === 0) {
     const articleWithDefault = await prisma.article.findUnique({
@@ -168,21 +225,48 @@ export async function getArticleById(id: number, languageCode?: string): Promise
       }
     });
     return articleWithDefault ? formatArticleResponse(articleWithDefault) : null;
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   }
 
   return formatArticleResponse(article);
 }
 
+<<<<<<< HEAD
+export async function getArticleBySlug(slug: string, languageCode?: SupportedLanguageCode): Promise<ArticleResponse | null> {
+  const article = await prisma.article.findFirst({
+    where: { slug },
+    include: {
+      category: {
+        include: {
+          translations: {
+            where: languageCode ? { languageCode } : { isDefault: true },
+            include: {
+              language: true
+            }
+          }
+        }
+      },
+=======
 export async function getArticleBySlug(slug: string, languageCode?: string): Promise<ArticleResponse | null> {
   const article = await prisma.article.findFirst({
     where: { slug },
     include: {
       category: true,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       translations: {
         where: languageCode ? { languageCode } : {},
         include: {
           language: true
         }
+<<<<<<< HEAD
+      },
+      attachments: {
+        include: {
+          attachment: true
+        },
+        orderBy: { order: 'asc' }
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       }
     }
   });
@@ -191,6 +275,20 @@ export async function getArticleBySlug(slug: string, languageCode?: string): Pro
     return null;
   }
 
+<<<<<<< HEAD
+  // If no translations found for specific language, return empty translations array
+  if (languageCode && article.translations.length === 0) {
+    // Still increment views even if no translations for this language
+    await prisma.article.update({
+      where: { id: article.id },
+      data: { views: { increment: 1 } }
+    });
+
+    return formatArticleResponse({
+      ...article,
+      translations: []
+    });
+=======
   // If no translations found for specific language, get default translation
   if (languageCode && article.translations.length === 0) {
     const articleWithDefault = await prisma.article.findFirst({
@@ -206,6 +304,7 @@ export async function getArticleBySlug(slug: string, languageCode?: string): Pro
       }
     });
     return articleWithDefault ? formatArticleResponse(articleWithDefault) : null;
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   }
 
   // Increment views
@@ -246,7 +345,20 @@ export async function getArticles(query: GetArticlesQuery = {}) {
     prisma.article.findMany({
       where,
       include: {
+<<<<<<< HEAD
+        category: {
+          include: {
+            translations: {
+              where: languageCode ? { languageCode } : { isDefault: true },
+              include: {
+                language: true
+              }
+            }
+          }
+        },
+=======
         category: true,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
         translations: {
           where: languageCode ? { languageCode } : { isDefault: true },
           include: {
@@ -267,8 +379,24 @@ export async function getArticles(query: GetArticlesQuery = {}) {
     prisma.article.count({ where })
   ]);
 
+<<<<<<< HEAD
+  // For articles with no translations in requested language, return empty translations array
+  const formattedArticles = articles.map(article => {
+    if (languageCode && article.translations.length === 0) {
+      return formatArticleResponse({
+        ...article,
+        translations: []
+      });
+    }
+    return formatArticleResponse(article);
+  });
+
+  return {
+    articles: formattedArticles,
+=======
   return {
     articles: articles.map(formatArticleResponse),
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
     pagination: {
       page,
       limit,
@@ -278,6 +406,106 @@ export async function getArticles(query: GetArticlesQuery = {}) {
   };
 }
 
+<<<<<<< HEAD
+export async function getArticlesByCategory(categoryId: number, query: GetArticlesQuery = {}) {
+  const { page = 1, limit = 10, languageCode, search } = query;
+  const skip = (page - 1) * limit;
+
+  // Check if category exists
+  const category = await prisma.articleCategory.findUnique({
+    where: { id: categoryId },
+    include: {
+      translations: {
+        where: languageCode ? { languageCode } : { isDefault: true },
+        include: {
+          language: true
+        }
+      }
+    }
+  });
+
+  if (!category) {
+    throw new Error("CATEGORY_NOT_FOUND");
+  }
+
+  const where: any = {
+    categoryId
+  };
+
+  if (search || languageCode) {
+    where.translations = {
+      some: {
+        ...(languageCode && { languageCode }),
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { summary: { contains: search, mode: 'insensitive' } },
+            { body: { contains: search, mode: 'insensitive' } }
+          ]
+        })
+      }
+    };
+  }
+
+  const [articles, total] = await Promise.all([
+    prisma.article.findMany({
+      where,
+      include: {
+        category: {
+          include: {
+            translations: {
+              where: languageCode ? { languageCode } : { isDefault: true },
+              include: {
+                language: true
+              }
+            }
+          }
+        },
+        translations: {
+          where: languageCode ? { languageCode } : { isDefault: true },
+          include: {
+            language: true
+          }
+        },
+        attachments: {
+          include: {
+            attachment: true
+          },
+          orderBy: { order: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit
+    }),
+    prisma.article.count({ where })
+  ]);
+
+  // For articles with no translations in requested language, return empty translations array
+  const formattedArticles = articles.map(article => {
+    if (languageCode && article.translations.length === 0) {
+      return formatArticleResponse({
+        ...article,
+        translations: []
+      });
+    }
+    return formatArticleResponse(article);
+  });
+
+  return {
+    articles: formattedArticles,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    },
+    category: formatCategoryFromArticleResponse(category, languageCode)
+  };
+}
+
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 export async function updateArticle(id: number, data: UpdateArticleRequest): Promise<ArticleResponse> {
   const existingArticle = await prisma.article.findUnique({
     where: { id },
@@ -329,12 +557,18 @@ export async function updateArticle(id: number, data: UpdateArticleRequest): Pro
   // Validate translations if provided
   if (data.translations) {
     const languageCodes = data.translations.map(t => t.languageCode);
+<<<<<<< HEAD
+    const unsupportedLanguages = languageCodes.filter(code => !isSupportedLanguage(code));
+    if (unsupportedLanguages.length > 0) {
+      throw new Error(`UNSUPPORTED_LANGUAGES: ${unsupportedLanguages.join(', ')}`);
+=======
     const languages = await prisma.language.findMany({
       where: { code: { in: languageCodes } }
     });
     
     if (languages.length !== languageCodes.length) {
       throw new Error("INVALID_LANGUAGE_CODES");
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
     }
 
     const defaultTranslations = data.translations.filter(t => t.isDefault);
@@ -372,13 +606,33 @@ export async function updateArticle(id: number, data: UpdateArticleRequest): Pro
   
   if (slugToUpdate) updateData.slug = slugToUpdate;
   if (data.categoryId) updateData.categoryId = data.categoryId;
+<<<<<<< HEAD
+  if (data.date) {
+    updateData.publishedAt = new Date(data.date);
+    updateData.isPublished = true;
+  }
+=======
   if (data.date) updateData.date = new Date(data.date);
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 
   const article = await prisma.article.update({
     where: { id },
     data: updateData,
     include: {
+<<<<<<< HEAD
+      category: {
+        include: {
+          translations: {
+            where: { isDefault: true },
+            include: {
+              language: true
+            }
+          }
+        }
+      },
+=======
       category: true,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       translations: {
         include: {
           language: true
@@ -436,7 +690,20 @@ export async function updateArticle(id: number, data: UpdateArticleRequest): Pro
   const updatedArticle = await prisma.article.findUnique({
     where: { id },
     include: {
+<<<<<<< HEAD
+      category: {
+        include: {
+          translations: {
+            where: { isDefault: true },
+            include: {
+              language: true
+            }
+          }
+        }
+      },
+=======
       category: true,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
       translations: {
         include: {
           language: true
@@ -483,15 +750,34 @@ function formatArticleResponse(article: any): ArticleResponse {
     ? process.env.BASE_URL || 'https://api.example.com' 
     : `http://localhost:${process.env.PORT || 8000}`;
 
+<<<<<<< HEAD
+  // Get category name from translations or fallback
+  const categoryTranslation = article.category?.translations?.[0];
+  const categoryName = categoryTranslation?.name || 'Unknown Category';
+
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   return {
     id: article.id,
     slug: article.slug,
     views: article.views,
+<<<<<<< HEAD
+    date: article.publishedAt ? article.publishedAt.toISOString() : article.createdAt.toISOString(),
+    categoryId: article.categoryId,
+    createdAt: article.createdAt.toISOString(),
+    updatedAt: article.updatedAt.toISOString(),
+    category: {
+      id: article.category.id,
+      slug: article.category.slug,
+      name: categoryName
+    },
+=======
     date: article.date.toISOString(),
     categoryId: article.categoryId,
     createdAt: article.createdAt.toISOString(),
     updatedAt: article.updatedAt.toISOString(),
     category: article.category,
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
     translations: article.translations.map((translation: any) => ({
       id: translation.id,
       articleId: translation.articleId,
@@ -525,4 +811,16 @@ function formatArticleResponse(article: any): ArticleResponse {
       }
     })) : []
   };
+<<<<<<< HEAD
+}
+
+function formatCategoryFromArticleResponse(category: any, languageCode?: SupportedLanguageCode) {
+  const translation = category.translations?.[0];
+  return {
+    id: category.id,
+    slug: category.slug,
+    name: translation?.name || 'Unknown Category'
+  };
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 }

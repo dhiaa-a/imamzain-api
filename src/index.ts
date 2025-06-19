@@ -9,6 +9,10 @@ import { env } from "./config/env";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import articleRouter from "./routes/article.routes";
+<<<<<<< HEAD
+import categoryRouter from "./routes/category.routes";
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 import attachmentRouter from "./routes/attachment.routes";
 import bookRouter from "./routes/book.routes";
 import researchRouter from "./routes/research.routes";
@@ -66,6 +70,21 @@ app.use("/api/v1/attachments", attachmentRouter);
 // 10) Language-specific article routes (JWT required for create/update/delete)
 app.use("/api/v1", articleRouter);
 
+<<<<<<< HEAD
+// 11) Language-specific category routes (JWT required for create/update/delete)
+app.use("/api/v1", categoryRouter);
+
+// 12) Book routes (mixed public/protected)
+app.use("/api/v1", bookRouter);
+
+// 13) Research routes (mixed public/protected)
+app.use("/api/v1", researchRouter);
+
+// 14) Global error handler
+app.use(errorHandler);
+
+// 15) Start server
+=======
 // 11) Book routes (mixed public/protected)
 app.use("/api/v1", bookRouter);
 
@@ -76,6 +95,7 @@ app.use("/api/v1", researchRouter);
 app.use(errorHandler);
 
 // 14) Start server
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 app.listen(env.PORT, () => {
   console.log(
     `📡 [${env.NODE_ENV}] Listening on http://localhost:${env.PORT}`

@@ -1,4 +1,8 @@
 // src/types/article.types.ts
+<<<<<<< HEAD
+import { SupportedLanguageCode } from "./language.types";
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 
 export interface CreateArticleRequest {
   slug?: string; // Now optional - will be auto-generated if not provided
@@ -9,7 +13,11 @@ export interface CreateArticleRequest {
 }
 
 export interface CreateArticleTranslation {
+<<<<<<< HEAD
+  languageCode: SupportedLanguageCode;
+=======
   languageCode: string;
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   isDefault: boolean;
   title: string;
   summary: string;
@@ -26,7 +34,11 @@ export interface UpdateArticleRequest {
 
 export interface UpdateArticleTranslation {
   id?: number; // if updating existing translation
+<<<<<<< HEAD
+  languageCode: SupportedLanguageCode;
+=======
   languageCode: string;
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   isDefault?: boolean;
   title: string;
   summary: string;
@@ -76,7 +88,11 @@ export interface ArticleAttachmentResponse {
 export interface ArticleTranslationResponse {
   id: number;
   articleId: number;
+<<<<<<< HEAD
+  languageCode: SupportedLanguageCode;
+=======
   languageCode: string;
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   isDefault: boolean;
   title: string;
   summary: string;
@@ -92,12 +108,20 @@ export interface GetArticlesQuery {
   page?: number;
   limit?: number;
   categoryId?: number;
+<<<<<<< HEAD
+  languageCode?: SupportedLanguageCode;
+=======
   languageCode?: string;
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   search?: string;
 }
 
 export interface ArticleAttachmentRequest {
   attachmentId: number;
+<<<<<<< HEAD
+  type: 'featured' | 'gallery' | 'attachment' | 'other';
+=======
   type: 'image' | 'attachment' | 'other';
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   order: number;
 }

@@ -15,7 +15,11 @@ function printFolderStructure(dir, indent = '') {
     const nextIndent = indent + (isLast ? '    ' : '│   ');
 
     const isDir = fs.statSync(fullPath).isDirectory();
+<<<<<<< HEAD
+    output += indent + prefix + (isDir ? `${item}` : `${item}`) + '\n';
+=======
     output += indent + prefix + (isDir ? `📁 ${item}` : `📄 ${item}`) + '\n';
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 
     if (isDir) {
       printFolderStructure(fullPath, nextIndent);

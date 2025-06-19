@@ -5,6 +5,10 @@ import {
   getArticleHandler,
   getArticleBySlugHandler,
   getArticlesHandler,
+<<<<<<< HEAD
+  getArticlesByCategoryHandler,
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
   updateArticleHandler,
   deleteArticleHandler
 } from "../controllers/article.controller";
@@ -17,6 +21,12 @@ const articleRouter = Router();
 // GET /api/v1/:lang/articles - Get all articles with filtering (public)
 articleRouter.get("/:lang/articles", validateLanguage, getArticlesHandler);
 
+<<<<<<< HEAD
+// GET /api/v1/:lang/articles/category/:categoryId - Get articles by category (public)
+articleRouter.get("/:lang/articles/category/:categoryId", validateLanguage, getArticlesByCategoryHandler);
+
+=======
+>>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
 // GET /api/v1/:lang/articles/:id - Get article by ID (public)
 articleRouter.get("/:lang/articles/:id", validateLanguage, getArticleHandler);
 
