@@ -92,9 +92,10 @@ export async function createArticle(
 	const article = await prisma.article.create({
 		data: {
 			slug: uniqueSlug,
-			categoryId: data.categoryId,
-			date: new Date(data.date),
 			views: 0,
+			publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
+			isPublished: data.isPublished || false,
+			categoryId: data.categoryId,
 			translations: {
 				create: data.translations.map((translation) => ({
 					languageCode: translation.languageCode,
@@ -102,6 +103,8 @@ export async function createArticle(
 					title: translation.title,
 					summary: translation.summary,
 					body: translation.body,
+					metaTitle: translation.metaTitle,
+					metaDescription: translation.metaDescription,
 				})),
 			},
 			...(data.attachments &&
@@ -111,6 +114,7 @@ export async function createArticle(
 							attachmentsId: attachment.attachmentId,
 							type: attachment.type,
 							order: attachment.order,
+							caption: attachment.caption,
 						})),
 					},
 				}),
@@ -203,6 +207,12 @@ export async function getArticleBySlug(
 					language: true,
 				},
 			},
+			attachments: {
+				include: {
+					attachment: true,
+				},
+				orderBy: { order: "asc" },
+			},
 		},
 	})
 
@@ -221,6 +231,12 @@ export async function getArticleBySlug(
 					include: {
 						language: true,
 					},
+				},
+				attachments: {
+					include: {
+						attachment: true,
+					},
+					orderBy: { order: "asc" },
 				},
 			},
 		})
@@ -406,7 +422,8 @@ export async function updateArticle(
 
 	if (slugToUpdate) updateData.slug = slugToUpdate
 	if (data.categoryId) updateData.categoryId = data.categoryId
-	if (data.date) updateData.date = new Date(data.date)
+	if (data.publishedAt !== undefined) updateData.publishedAt = data.publishedAt ? new Date(data.publishedAt) : null
+	if (data.isPublished !== undefined) updateData.isPublished = data.isPublished
 
 	const article = await prisma.article.update({
 		where: { id },
@@ -442,6 +459,8 @@ export async function updateArticle(
 				title: translation.title,
 				summary: translation.summary,
 				body: translation.body,
+				metaTitle: translation.metaTitle,
+				metaDescription: translation.metaDescription,
 			})),
 		})
 	}
@@ -461,6 +480,7 @@ export async function updateArticle(
 					attachmentsId: attachment.attachmentId,
 					type: attachment.type,
 					order: attachment.order,
+					caption: attachment.caption,
 				})),
 			})
 		}
@@ -522,7 +542,8 @@ function formatArticleResponse(article: any): ArticleResponse {
 		id: article.id,
 		slug: article.slug,
 		views: article.views,
-		date: article.date.toISOString(),
+		publishedAt: article.publishedAt ? article.publishedAt.toISOString() : null,
+		isPublished: article.isPublished,
 		categoryId: article.categoryId,
 		createdAt: article.createdAt.toISOString(),
 		updatedAt: article.updatedAt.toISOString(),
@@ -535,6 +556,8 @@ function formatArticleResponse(article: any): ArticleResponse {
 			title: translation.title,
 			summary: translation.summary,
 			body: translation.body,
+			metaTitle: translation.metaTitle,
+			metaDescription: translation.metaDescription,
 			language: translation.language,
 		})),
 		attachments: article.attachments
@@ -544,6 +567,7 @@ function formatArticleResponse(article: any): ArticleResponse {
 					attachmentId: item.attachmentsId,
 					type: item.type,
 					order: item.order,
+					caption: item.caption,
 					attachment: {
 						id: item.attachment.id,
 						originalName: item.attachment.originalName,

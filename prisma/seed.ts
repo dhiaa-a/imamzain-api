@@ -1,13 +1,8 @@
 // prisma/seed.ts
-import { PrismaClient } from "@prisma/client"
+import { prisma } from './../src/database/prisma';
+
+ 
 import bcrypt from "bcrypt"
-import dotenv from "dotenv"
-import path from "path"
-
-// Load environment variables
-dotenv.config({ path: path.resolve(process.cwd(), '.env') })
-
-const prisma = new PrismaClient()
 
 async function main() {
 	// 1) Define roles

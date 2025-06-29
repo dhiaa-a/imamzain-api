@@ -9,8 +9,8 @@ import {
   serveFileHandler,
   upload
 } from "../controllers/attachment.controller";
-import { authorize, authenticateJWT } from "../middlewares/auth.middleware";
-import { validateCreateAttachment, validateUpdateAttachment, validateArticleAttachments } from "../validations/attachment.validations";
+import { authenticateJWT, authorize } from "../middlewares/auth.middleware";
+import { validateUpdateAttachment } from "../validations/attachment.validations";
 
 const attachmentRouter = Router();
 

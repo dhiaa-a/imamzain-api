@@ -1,142 +1,215 @@
 // src/validations/book.validations.ts
+import { z } from "zod";
 import { Request, Response, NextFunction } from "express";
+
+const createBookTranslationSchema = z.object({
+  languageCode: z.string().min(2, "Language code must be at least 2 characters"),
+  isDefault: z.boolean(),
+  title: z.string().min(1, "Title is required"),
+  author: z.string().optional(),
+  publisher: z.string().optional(),
+  description: z.string().optional(),
+  series: z.string().optional(),
+  metaTitle: z.string().optional(),
+  metaDescription: z.string().optional()
+});
+
+const updateBookTranslationSchema = z.object({
+  id: z.number().optional(),
+  languageCode: z.string().min(2, "Language code must be at least 2 characters"),
+  isDefault: z.boolean().optional(),
+  title: z.string().min(1, "Title is required"),
+  author: z.string().optional(),
+  publisher: z.string().optional(),
+  description: z.string().optional(),
+  series: z.string().optional(),
+  metaTitle: z.string().optional(),
+  metaDescription: z.string().optional()
+});
+
+const bookAttachmentSchema = z.object({
+  attachmentId: z.number().positive("Attachment ID must be a positive number"),
+  type: z.enum(["cover", "pdf", "other"], {
+    errorMap: () => ({ message: "Type must be one of: cover, pdf, other" })
+  }),
+  order: z.number().int("Order must be an integer"),
+  caption: z.string().optional()
+});
+
+const createBookSchema = z.object({
+  slug: z.string()
+    .min(3, "Slug must be at least 3 characters long")
+    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens")
+    .optional(),
+  isbn: z.string().optional(),
+  pages: z.number().positive("Pages must be a positive number"),
+  parts: z.number().positive("Parts must be a positive number"),
+  partNumber: z.number().positive("Part number must be a positive number"),
+  totalParts: z.number().positive("Total parts must be a positive number"),
+  publishYear: z.string().optional(),
+  isPublished: z.boolean().optional(),
+  categoryId: z.number().positive("Category ID must be a positive number"),
+  translations: z.array(createBookTranslationSchema)
+    .min(1, "At least one translation is required"),
+  attachments: z.array(bookAttachmentSchema).optional()
+}).refine((data) => {
+  return data.partNumber <= data.totalParts;
+}, {
+  message: "Part number cannot be greater than total parts",
+  path: ["partNumber"]
+}).refine((data) => {
+  const defaultTranslations = data.translations.filter(t => t.isDefault);
+  return defaultTranslations.length === 1;
+}, {
+  message: "Exactly one translation must be marked as default",
+  path: ["translations"]
+}).refine((data) => {
+  if (!data.attachments || data.attachments.length === 0) return true;
+  const attachmentIds = data.attachments.map(a => a.attachmentId);
+  const uniqueIds = new Set(attachmentIds);
+  return uniqueIds.size === attachmentIds.length;
+}, {
+  message: "Duplicate attachment IDs found",
+  path: ["attachments"]
+}).refine((data) => {
+  if (!data.attachments || data.attachments.length === 0) return true;
+  const orders = data.attachments.map(a => a.order);
+  const uniqueOrders = new Set(orders);
+  return uniqueOrders.size === orders.length;
+}, {
+  message: "Duplicate attachment order values found",
+  path: ["attachments"]
+});
+
+const updateBookSchema = z.object({
+  slug: z.string()
+    .min(3, "Slug must be at least 3 characters long")
+    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens")
+    .optional(),
+  isbn: z.string().optional(),
+  pages: z.number().positive("Pages must be a positive number").optional(),
+  parts: z.number().positive("Parts must be a positive number").optional(),
+  partNumber: z.number().positive("Part number must be a positive number").optional(),
+  totalParts: z.number().positive("Total parts must be a positive number").optional(),
+  publishYear: z.string().optional(),
+  isPublished: z.boolean().optional(),
+  categoryId: z.number().positive("Category ID must be a positive number").optional(),
+  translations: z.array(updateBookTranslationSchema)
+    .min(1, "At least one translation is required when updating translations")
+    .optional(),
+  attachments: z.array(bookAttachmentSchema).optional()
+}).refine((data) => {
+  if (data.partNumber !== undefined && data.totalParts !== undefined) {
+    return data.partNumber <= data.totalParts;
+  }
+  return true;
+}, {
+  message: "Part number cannot be greater than total parts",
+  path: ["partNumber"]
+}).refine((data) => {
+  if (!data.translations) return true;
+  const defaultTranslations = data.translations.filter(t => t.isDefault);
+  return defaultTranslations.length <= 1;
+}, {
+  message: "At most one translation can be marked as default",
+  path: ["translations"]
+}).refine((data) => {
+  if (!data.attachments || data.attachments.length === 0) return true;
+  const attachmentIds = data.attachments.map(a => a.attachmentId);
+  const uniqueIds = new Set(attachmentIds);
+  return uniqueIds.size === attachmentIds.length;
+}, {
+  message: "Duplicate attachment IDs found",
+  path: ["attachments"]
+}).refine((data) => {
+  if (!data.attachments || data.attachments.length === 0) return true;
+  const orders = data.attachments.map(a => a.order);
+  const uniqueOrders = new Set(orders);
+  return uniqueOrders.size === orders.length;
+}, {
+  message: "Duplicate attachment order values found",
+  path: ["attachments"]
+});
+
+const createBookCategoryTranslationSchema = z.object({
+  languageCode: z.string().min(2, "Language code must be at least 2 characters"),
+  isDefault: z.boolean(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  metaTitle: z.string().optional(),
+  metaDescription: z.string().optional()
+});
+
+const updateBookCategoryTranslationSchema = z.object({
+  id: z.number().optional(),
+  languageCode: z.string().min(2, "Language code must be at least 2 characters"),
+  isDefault: z.boolean().optional(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  metaTitle: z.string().optional(),
+  metaDescription: z.string().optional()
+});
+
+const createBookCategorySchema = z.object({
+  slug: z.string()
+    .min(2, "Slug must be at least 2 characters long")
+    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
+  parentId: z.number().positive("Parent ID must be a positive number").optional(),
+  sortOrder: z.number().int("Sort order must be an integer").optional(),
+  isActive: z.boolean().optional(),
+  translations: z.array(createBookCategoryTranslationSchema)
+    .min(1, "At least one translation is required")
+}).refine((data) => {
+  const defaultTranslations = data.translations.filter(t => t.isDefault);
+  return defaultTranslations.length === 1;
+}, {
+  message: "Exactly one translation must be marked as default",
+  path: ["translations"]
+});
+
+const updateBookCategorySchema = z.object({
+  slug: z.string()
+    .min(2, "Slug must be at least 2 characters long")
+    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens")
+    .optional(),
+  parentId: z.number().positive("Parent ID must be a positive number").optional(),
+  sortOrder: z.number().int("Sort order must be an integer").optional(),
+  isActive: z.boolean().optional(),
+  translations: z.array(updateBookCategoryTranslationSchema)
+    .min(1, "At least one translation is required when updating translations")
+    .optional()
+}).refine((data) => {
+  if (!data.translations) return true;
+  const defaultTranslations = data.translations.filter(t => t.isDefault);
+  return defaultTranslations.length <= 1;
+}, {
+  message: "At most one translation can be marked as default",
+  path: ["translations"]
+});
 
 export function validateCreateBook(
   req: Request,
   res: Response,
   next: NextFunction
 ): void {
-  const { slug, pages, parts, partNumber, totalParts, categoryId, translations, attachments } = req.body;
-  const errors: string[] = [];
-
-  // Validate slug (optional)
-  if (slug !== undefined) {
-    if (typeof slug !== "string") {
-      errors.push("Slug must be a string");
-    } else if (slug.length < 3) {
-      errors.push("Slug must be at least 3 characters long");
-    } else if (!/^[a-z0-9-]+$/.test(slug)) {
-      errors.push("Slug can only contain lowercase letters, numbers, and hyphens");
-    }
-  }
-
-  // Validate required number fields
-  if (!pages || typeof pages !== "number" || pages <= 0) {
-    errors.push("Pages is required and must be a positive number");
-  }
-
-  if (!parts || typeof parts !== "number" || parts <= 0) {
-    errors.push("Parts is required and must be a positive number");
-  }
-
-  if (partNumber === undefined || typeof partNumber !== "number" || partNumber <= 0) {
-    errors.push("PartNumber is required and must be a positive number");
-  }
-
-  if (!totalParts || typeof totalParts !== "number" || totalParts <= 0) {
-    errors.push("TotalParts is required and must be a positive number");
-  }
-
-  // Validate part number logic
-  if (partNumber && totalParts && partNumber > totalParts) {
-    errors.push("PartNumber cannot be greater than totalParts");
-  }
-
-  // Validate categoryId
-  if (!categoryId || typeof categoryId !== "number") {
-    errors.push("CategoryId is required and must be a number");
-  }
-
-  // Validate translations
-  if (!translations || !Array.isArray(translations)) {
-    errors.push("Translations are required and must be an array");
-  } else if (translations.length === 0) {
-    errors.push("At least one translation is required");
-  } else {
-    translations.forEach((translation, index) => {
-      if (!translation.languageCode || typeof translation.languageCode !== "string") {
-        errors.push(`Translation ${index + 1}: languageCode is required`);
-      }
-      if (!translation.title || typeof translation.title !== "string") {
-        errors.push(`Translation ${index + 1}: title is required`);
-      }
-      if (!translation.author || typeof translation.author !== "string") {
-        errors.push(`Translation ${index + 1}: author is required`);
-      }
-      if (!translation.printHouse || typeof translation.printHouse !== "string") {
-        errors.push(`Translation ${index + 1}: printHouse is required`);
-      }
-      if (!translation.printDate || typeof translation.printDate !== "string") {
-        errors.push(`Translation ${index + 1}: printDate is required`);
-      }
-      if (!translation.series || typeof translation.series !== "string") {
-        errors.push(`Translation ${index + 1}: series is required`);
-      }
-      if (typeof translation.isDefault !== "boolean") {
-        errors.push(`Translation ${index + 1}: isDefault must be a boolean`);
-      }
-      if (translation.names !== undefined && !Array.isArray(translation.names)) {
-        errors.push(`Translation ${index + 1}: names must be an array`);
-      }
-    });
-
-    // Check for exactly one default translation
-    const defaultCount = translations.filter(t => t.isDefault).length;
-    if (defaultCount !== 1) {
-      errors.push("Exactly one translation must be marked as default");
-    }
-  }
-
-  // Validate attachments (optional)
-  if (attachments !== undefined) {
-    if (!Array.isArray(attachments)) {
-      errors.push("Attachments must be an array");
-    } else {
-      attachments.forEach((attachment, index) => {
-        if (!attachment.attachmentId || typeof attachment.attachmentId !== "number") {
-          errors.push(`Attachment ${index + 1}: attachmentId is required and must be a number`);
-        }
-
-        if (!attachment.type || typeof attachment.type !== "string") {
-          errors.push(`Attachment ${index + 1}: type is required and must be a string`);
-        } else if (!["cover", "pdf", "other"].includes(attachment.type)) {
-          errors.push(`Attachment ${index + 1}: type must be one of: cover, pdf, other`);
-        }
-
-        if (attachment.order === undefined || typeof attachment.order !== "number") {
-          errors.push(`Attachment ${index + 1}: order is required and must be a number`);
+  try {
+    createBookSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Validation failed",
+          details: errors
         }
       });
-
-      // Check for duplicate attachment IDs
-      const attachmentIds = attachments.map(a => a.attachmentId);
-      const duplicateIds = attachmentIds.filter((id, index) => attachmentIds.indexOf(id) !== index);
-      if (duplicateIds.length > 0) {
-        errors.push(`Duplicate attachment IDs found: ${duplicateIds.join(", ")}`);
-      }
-
-      // Check for duplicate orders
-      const orders = attachments.map(a => a.order);
-      const duplicateOrders = orders.filter((order, index) => orders.indexOf(order) !== index);
-      if (duplicateOrders.length > 0) {
-        errors.push(`Duplicate attachment order values found: ${duplicateOrders.join(", ")}`);
-      }
+      return;
     }
+    next(error);
   }
-
-  if (errors.length > 0) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Validation failed",
-        details: errors
-      }
-    });
-    return;
-  }
-
-  next();
 }
 
 export function validateUpdateBook(
@@ -144,219 +217,72 @@ export function validateUpdateBook(
   res: Response,
   next: NextFunction
 ): void {
-  const { slug, pages, parts, partNumber, totalParts, categoryId, translations, attachments } = req.body;
-  const errors: string[] = [];
-
-  // Validate slug if provided
-  if (slug !== undefined) {
-    if (typeof slug !== "string") {
-      errors.push("Slug must be a string");
-    } else if (slug.length < 3) {
-      errors.push("Slug must be at least 3 characters long");
-    } else if (!/^[a-z0-9-]+$/.test(slug)) {
-      errors.push("Slug can only contain lowercase letters, numbers, and hyphens");
-    }
-  }
-
-  // Validate number fields if provided
-  if (pages !== undefined && (typeof pages !== "number" || pages <= 0)) {
-    errors.push("Pages must be a positive number");
-  }
-
-  if (parts !== undefined && (typeof parts !== "number" || parts <= 0)) {
-    errors.push("Parts must be a positive number");
-  }
-
-  if (partNumber !== undefined && (typeof partNumber !== "number" || partNumber <= 0)) {
-    errors.push("PartNumber must be a positive number");
-  }
-
-  if (totalParts !== undefined && (typeof totalParts !== "number" || totalParts <= 0)) {
-    errors.push("TotalParts must be a positive number");
-  }
-
-  // Validate part number logic if both are provided
-  if (partNumber !== undefined && totalParts !== undefined && partNumber > totalParts) {
-    errors.push("PartNumber cannot be greater than totalParts");
-  }
-
-  // Validate categoryId if provided
-  if (categoryId !== undefined && typeof categoryId !== "number") {
-    errors.push("CategoryId must be a number");
-  }
-
-  // Validate translations if provided
-  if (translations !== undefined) {
-    if (!Array.isArray(translations)) {
-      errors.push("Translations must be an array");
-    } else if (translations.length === 0) {
-      errors.push("At least one translation is required when updating translations");
-    } else {
-      translations.forEach((translation, index) => {
-        if (!translation.languageCode || typeof translation.languageCode !== "string") {
-          errors.push(`Translation ${index + 1}: languageCode is required`);
-        }
-        if (!translation.title || typeof translation.title !== "string") {
-          errors.push(`Translation ${index + 1}: title is required`);
-        }
-        if (!translation.author || typeof translation.author !== "string") {
-          errors.push(`Translation ${index + 1}: author is required`);
-        }
-        if (!translation.printHouse || typeof translation.printHouse !== "string") {
-          errors.push(`Translation ${index + 1}: printHouse is required`);
-        }
-        if (!translation.printDate || typeof translation.printDate !== "string") {
-          errors.push(`Translation ${index + 1}: printDate is required`);
-        }
-        if (!translation.series || typeof translation.series !== "string") {
-          errors.push(`Translation ${index + 1}: series is required`);
-        }
-        if (translation.isDefault !== undefined && typeof translation.isDefault !== "boolean") {
-          errors.push(`Translation ${index + 1}: isDefault must be a boolean`);
-        }
-        if (translation.names !== undefined && !Array.isArray(translation.names)) {
-          errors.push(`Translation ${index + 1}: names must be an array`);
+  try {
+    updateBookSchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Validation failed",
+          details: errors
         }
       });
-
-      // Check for at most one default translation
-      const defaultCount = translations.filter(t => t.isDefault).length;
-      if (defaultCount > 1) {
-        errors.push("At most one translation can be marked as default");
-      }
+      return;
     }
+    next(error);
   }
-
-  // Validate attachments if provided
-  if (attachments !== undefined) {
-    if (!Array.isArray(attachments)) {
-      errors.push("Attachments must be an array");
-    } else {
-      attachments.forEach((attachment, index) => {
-        if (!attachment.attachmentId || typeof attachment.attachmentId !== "number") {
-          errors.push(`Attachment ${index + 1}: attachmentId is required and must be a number`);
-        }
-
-        if (!attachment.type || typeof attachment.type !== "string") {
-          errors.push(`Attachment ${index + 1}: type is required and must be a string`);
-        } else if (!["cover", "pdf", "other"].includes(attachment.type)) {
-          errors.push(`Attachment ${index + 1}: type must be one of: cover, pdf, other`);
-        }
-
-        if (attachment.order === undefined || typeof attachment.order !== "number") {
-          errors.push(`Attachment ${index + 1}: order is required and must be a number`);
-        }
-      });
-
-      // Check for duplicate attachment IDs
-      const attachmentIds = attachments.map(a => a.attachmentId);
-      const duplicateIds = attachmentIds.filter((id, index) => attachmentIds.indexOf(id) !== index);
-      if (duplicateIds.length > 0) {
-        errors.push(`Duplicate attachment IDs found: ${duplicateIds.join(", ")}`);
-      }
-
-      // Check for duplicate orders
-      const orders = attachments.map(a => a.order);
-      const duplicateOrders = orders.filter((order, index) => orders.indexOf(order) !== index);
-      if (duplicateOrders.length > 0) {
-        errors.push(`Duplicate attachment order values found: ${duplicateOrders.join(", ")}`);
-      }
-    }
-  }
-
-  if (errors.length > 0) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Validation failed",
-        details: errors
-      }
-    });
-    return;
-  }
-
-  next();
 }
 
-export function validateCreateBookType(
+export function validateCreateBookCategory(
   req: Request,
   res: Response,
   next: NextFunction
 ): void {
-  const { slug, name } = req.body;
-  const errors: string[] = [];
-
-  // Validate slug
-  if (!slug || typeof slug !== "string") {
-    errors.push("Slug is required and must be a string");
-  } else if (slug.length < 2) {
-    errors.push("Slug must be at least 2 characters long");
-  } else if (!/^[a-z0-9-]+$/.test(slug)) {
-    errors.push("Slug can only contain lowercase letters, numbers, and hyphens");
+  try {
+    createBookCategorySchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Validation failed",
+          details: errors
+        }
+      });
+      return;
+    }
+    next(error);
   }
-
-  // Validate name
-  if (!name || typeof name !== "string") {
-    errors.push("Name is required and must be a string");
-  } else if (name.length < 2) {
-    errors.push("Name must be at least 2 characters long");
-  }
-
-  if (errors.length > 0) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Validation failed",
-        details: errors
-      }
-    });
-    return;
-  }
-
-  next();
 }
 
-export function validateUpdateBookType(
+export function validateUpdateBookCategory(
   req: Request,
   res: Response,
   next: NextFunction
 ): void {
-  const { slug, name } = req.body;
-  const errors: string[] = [];
-
-  // Validate slug if provided
-  if (slug !== undefined) {
-    if (typeof slug !== "string") {
-      errors.push("Slug must be a string");
-    } else if (slug.length < 2) {
-      errors.push("Slug must be at least 2 characters long");
-    } else if (!/^[a-z0-9-]+$/.test(slug)) {
-      errors.push("Slug can only contain lowercase letters, numbers, and hyphens");
+  try {
+    updateBookCategorySchema.parse(req.body);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Validation failed",
+          details: errors
+        }
+      });
+      return;
     }
+    next(error);
   }
-
-  // Validate name if provided
-  if (name !== undefined) {
-    if (typeof name !== "string") {
-      errors.push("Name must be a string");
-    } else if (name.length < 2) {
-      errors.push("Name must be at least 2 characters long");
-    }
-  }
-
-  if (errors.length > 0) {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Validation failed",
-        details: errors
-      }
-    });
-    return;
-  }
-
-  next();
 }

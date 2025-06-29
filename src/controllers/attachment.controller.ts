@@ -5,12 +5,11 @@ import {
   getAttachmentById,
   getAttachments,
   updateAttachment,
-  deleteAttachment, 
+  deleteAttachment
 } from "../services/attachment.service";
 import { 
   CreateAttachmentRequest, 
   UpdateAttachmentRequest,
-  ArticleAttachmentRequest,
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE
 } from "../types/attachment.types";
@@ -105,8 +104,6 @@ export async function uploadFileHandler(
     next(error);
   }
 }
-
-
 
 export async function getAttachmentHandler(
   req: Request,
@@ -271,7 +268,7 @@ export async function deleteAttachmentHandler(
         success: false,
         error: {
           code: "CONFLICT",
-          message: "Cannot delete attachment as it is being used by articles"
+          message: "Cannot delete attachment as it is being used by articles, research, or books"
         }
       });
       return;
@@ -280,7 +277,6 @@ export async function deleteAttachmentHandler(
     next(error);
   }
 }
-
 
 export async function serveFileHandler(
   req: Request,
@@ -307,16 +303,3 @@ export async function serveFileHandler(
     next(error);
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

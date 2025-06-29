@@ -7,12 +7,14 @@ import {
   getBooks,
   updateBook,
   deleteBook,
-  createBookType,
-  getBookTypes,
-  updateBookType,
-  deleteBookType
+  createBookCategory,
+  getBookCategories,
+  getBookCategoryById,
+  getBookCategoryBySlug,
+  updateBookCategory,
+  deleteBookCategory
 } from "../services/book.service";
-import { CreateBookRequest, UpdateBookRequest, CreateBookTypeRequest, UpdateBookTypeRequest } from "../types/book.types";
+import { CreateBookRequest, UpdateBookRequest, CreateBookCategoryRequest, UpdateBookCategoryRequest } from "../types/book.types";
 
 export async function createBookHandler(
   req: Request,
@@ -23,29 +25,6 @@ export async function createBookHandler(
     const bookData: CreateBookRequest = req.body;
     const { lang } = req.params;
     
-    // Basic validation
-    if (!bookData.pages || !bookData.parts || !bookData.partNumber || !bookData.totalParts || !bookData.categoryId || !bookData.translations) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Missing required fields: pages, parts, partNumber, totalParts, categoryId, translations"
-        }
-      });
-      return;
-    }
-
-    if (!Array.isArray(bookData.translations) || bookData.translations.length === 0) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "At least one translation is required"
-        }
-      });
-      return;
-    }
-
     const book = await createBook(bookData);
     
     res.status(201).json({
@@ -396,39 +375,61 @@ export async function deleteBookHandler(
   }
 }
 
-// Book Type (Category) handlers
-export async function createBookTypeHandler(
+// Book Category handlers
+export async function createBookCategoryHandler(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const typeData: CreateBookTypeRequest = req.body;
+    const categoryData: CreateBookCategoryRequest = req.body;
     
-    if (!typeData.slug || !typeData.name) {
-      res.status(400).json({
+    const bookCategory = await createBookCategory(categoryData);
+    
+    res.status(201).json({
+      success: true,
+      data: bookCategory
+    });
+  } catch (error: any) {
+    if (error.message === "PARENT_CATEGORY_NOT_FOUND") {
+      res.status(404).json({
         success: false,
         error: {
-          code: "BAD_REQUEST",
-          message: "Missing required fields: slug, name"
+          code: "NOT_FOUND",
+          message: "Parent category not found"
         }
       });
       return;
     }
 
-    const bookType = await createBookType(typeData);
-    
-    res.status(201).json({
-      success: true,
-      data: bookType
-    });
-  } catch (error: any) {
-    if (error.message === "BOOK_TYPE_SLUG_EXISTS") {
+    if (error.message === "BOOK_CATEGORY_SLUG_EXISTS") {
       res.status(409).json({
         success: false,
         error: {
           code: "CONFLICT",
-          message: "Book type with this slug already exists"
+          message: "Book category with this slug already exists"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "INVALID_LANGUAGE_CODES") {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "One or more language codes are invalid"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "EXACTLY_ONE_DEFAULT_TRANSLATION_REQUIRED") {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Exactly one translation must be marked as default"
         }
       });
       return;
@@ -438,68 +439,186 @@ export async function createBookTypeHandler(
   }
 }
 
-export async function getBookTypesHandler(
+export async function getBookCategoriesHandler(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const bookTypes = await getBookTypes();
+    const { lang } = req.params;
+    
+    const bookCategories = await getBookCategories(lang);
     
     res.json({
       success: true,
-      data: bookTypes
+      data: bookCategories
     });
   } catch (error) {
     next(error);
   }
 }
 
-export async function updateBookTypeHandler(
+export async function getBookCategoryHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { id, lang } = req.params;
+    
+    const categoryId = parseInt(id);
+    if (isNaN(categoryId)) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Invalid category ID"
+        }
+      });
+      return;
+    }
+
+    const category = await getBookCategoryById(categoryId, lang);
+    
+    if (!category) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Book category not found"
+        }
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBookCategoryBySlugHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { slug, lang } = req.params;
+
+    const category = await getBookCategoryBySlug(slug, lang);
+    
+    if (!category) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Book category not found"
+        }
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateBookCategoryHandler(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
     const { id } = req.params;
-    const updateData: UpdateBookTypeRequest = req.body;
+    const updateData: UpdateBookCategoryRequest = req.body;
     
-    const typeId = parseInt(id);
-    if (isNaN(typeId)) {
+    const categoryId = parseInt(id);
+    if (isNaN(categoryId)) {
       res.status(400).json({
         success: false,
         error: {
           code: "BAD_REQUEST",
-          message: "Invalid book type ID"
+          message: "Invalid category ID"
         }
       });
       return;
     }
 
-    const bookType = await updateBookType(typeId, updateData);
+    const bookCategory = await updateBookCategory(categoryId, updateData);
     
     res.json({
       success: true,
-      data: bookType
+      data: bookCategory
     });
   } catch (error: any) {
-    if (error.message === "BOOK_TYPE_NOT_FOUND") {
+    if (error.message === "BOOK_CATEGORY_NOT_FOUND") {
       res.status(404).json({
         success: false,
         error: {
           code: "NOT_FOUND",
-          message: "Book type not found"
+          message: "Book category not found"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "PARENT_CATEGORY_NOT_FOUND") {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "Parent category not found"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "CANNOT_SET_SELF_AS_PARENT") {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Cannot set category as its own parent"
         }
       });
       return;
     }
     
-    if (error.message === "BOOK_TYPE_SLUG_EXISTS") {
+    if (error.message === "BOOK_CATEGORY_SLUG_EXISTS") {
       res.status(409).json({
         success: false,
         error: {
           code: "CONFLICT",
-          message: "Book type with this slug already exists"
+          message: "Book category with this slug already exists"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "INVALID_LANGUAGE_CODES") {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "One or more language codes are invalid"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "ONLY_ONE_DEFAULT_TRANSLATION_ALLOWED") {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: "Only one translation can be marked as default"
         }
       });
       return;
@@ -509,7 +628,7 @@ export async function updateBookTypeHandler(
   }
 }
 
-export async function deleteBookTypeHandler(
+export async function deleteBookCategoryHandler(
   req: Request,
   res: Response,
   next: NextFunction
@@ -517,42 +636,53 @@ export async function deleteBookTypeHandler(
   try {
     const { id } = req.params;
     
-    const typeId = parseInt(id);
-    if (isNaN(typeId)) {
+    const categoryId = parseInt(id);
+    if (isNaN(categoryId)) {
       res.status(400).json({
         success: false,
         error: {
           code: "BAD_REQUEST",
-          message: "Invalid book type ID"
+          message: "Invalid category ID"
         }
       });
       return;
     }
 
-    await deleteBookType(typeId);
+    await deleteBookCategory(categoryId);
     
     res.json({
       success: true,
-      message: "Book type deleted successfully"
+      message: "Book category deleted successfully"
     });
   } catch (error: any) {
-    if (error.message === "BOOK_TYPE_NOT_FOUND") {
+    if (error.message === "BOOK_CATEGORY_NOT_FOUND") {
       res.status(404).json({
         success: false,
         error: {
           code: "NOT_FOUND",
-          message: "Book type not found"
+          message: "Book category not found"
         }
       });
       return;
     }
     
-    if (error.message === "BOOK_TYPE_HAS_BOOKS") {
+    if (error.message === "BOOK_CATEGORY_HAS_BOOKS") {
       res.status(409).json({
         success: false,
         error: {
           code: "CONFLICT",
-          message: "Cannot delete book type as it contains books"
+          message: "Cannot delete category as it contains books"
+        }
+      });
+      return;
+    }
+
+    if (error.message === "BOOK_CATEGORY_HAS_CHILDREN") {
+      res.status(409).json({
+        success: false,
+        error: {
+          code: "CONFLICT",
+          message: "Cannot delete category as it has child categories"
         }
       });
       return;

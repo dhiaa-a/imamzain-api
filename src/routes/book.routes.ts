@@ -7,43 +7,55 @@ import {
   getBooksHandler,
   updateBookHandler,
   deleteBookHandler,
-  createBookTypeHandler,
-  getBookTypesHandler,
-  updateBookTypeHandler,
-  deleteBookTypeHandler
+  createBookCategoryHandler,
+  getBookCategoriesHandler,
+  getBookCategoryHandler,
+  getBookCategoryBySlugHandler,
+  updateBookCategoryHandler,
+  deleteBookCategoryHandler
 } from "../controllers/book.controller";
 import { authorize, authenticateJWT } from "../middlewares/auth.middleware";
-import { validateCreateBook, validateUpdateBook, validateCreateBookType, validateUpdateBookType } from "../validations/book.validations";
+import { validateCreateBook, validateUpdateBook, validateCreateBookCategory, validateUpdateBookCategory } from "../validations/book.validations";
 import { validateLanguage } from "../middlewares/language.middleware";
 
 const bookRouter = Router();
 
-// Book Type (Category) routes
-// GET /api/v1/book-types - Get all book types (public)
-bookRouter.get("/book-types", getBookTypesHandler);
+// Book Category routes (without language prefix)
+// GET /api/v1/book-categories - Get all book categories (public)
+bookRouter.get("/book-categories", getBookCategoriesHandler);
 
-// POST /api/v1/book-types - Create book type (requires permission)
-bookRouter.post("/book-types", 
+// POST /api/v1/book-categories - Create book category (requires permission)
+bookRouter.post("/book-categories", 
   authenticateJWT,
-  authorize("CREATE_BOOKTYPE"),
-  validateCreateBookType,
-  createBookTypeHandler
+  authorize("CREATE_BOOK_CATEGORY"),
+  validateCreateBookCategory,
+  createBookCategoryHandler
 );
 
-// PUT /api/v1/book-types/:id - Update book type (requires permission)
-bookRouter.put("/book-types/:id", 
+// PUT /api/v1/book-categories/:id - Update book category (requires permission)
+bookRouter.put("/book-categories/:id", 
   authenticateJWT,
-  authorize("UPDATE_BOOKTYPE"),
-  validateUpdateBookType,
-  updateBookTypeHandler
+  authorize("UPDATE_BOOK_CATEGORY"),
+  validateUpdateBookCategory,
+  updateBookCategoryHandler
 );
 
-// DELETE /api/v1/book-types/:id - Delete book type (requires permission)
-bookRouter.delete("/book-types/:id", 
+// DELETE /api/v1/book-categories/:id - Delete book category (requires permission)
+bookRouter.delete("/book-categories/:id", 
   authenticateJWT,
-  authorize("DELETE_BOOKTYPE"),
-  deleteBookTypeHandler
+  authorize("DELETE_BOOK_CATEGORY"),
+  deleteBookCategoryHandler
 );
+
+// Language-specific book category routes
+// GET /api/v1/:lang/book-categories - Get all book categories with language (public)
+bookRouter.get("/:lang/book-categories", validateLanguage, getBookCategoriesHandler);
+
+// GET /api/v1/:lang/book-categories/:id - Get book category by ID with language (public)
+bookRouter.get("/:lang/book-categories/:id", validateLanguage, getBookCategoryHandler);
+
+// GET /api/v1/:lang/book-categories/slug/:slug - Get book category by slug with language (public)
+bookRouter.get("/:lang/book-categories/slug/:slug", validateLanguage, getBookCategoryBySlugHandler);
 
 // Language-specific book routes
 // GET /api/v1/:lang/books - Get all books with filtering (public)

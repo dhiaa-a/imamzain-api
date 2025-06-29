@@ -1,9 +1,10 @@
 // src/types/article.types.ts
 
 export interface CreateArticleRequest {
-	slug?: string // Now optional - will be auto-generated if not provided
+	slug?: string // Optional - will be auto-generated if not provided
 	categoryId: number
-	date: string // ISO date string
+	publishedAt?: string // ISO date string, optional
+	isPublished?: boolean // Optional, defaults to false
 	translations: CreateArticleTranslation[]
 	attachments?: ArticleAttachmentRequest[] // Optional attachments during creation
 }
@@ -12,14 +13,17 @@ export interface CreateArticleTranslation {
 	languageCode: string
 	isDefault: boolean
 	title: string
-	summary: string
+	summary?: string
 	body: string
+	metaTitle?: string
+	metaDescription?: string
 }
 
 export interface UpdateArticleRequest {
 	slug?: string
 	categoryId?: number
-	date?: string
+	publishedAt?: string // ISO date string
+	isPublished?: boolean
 	translations?: UpdateArticleTranslation[]
 	attachments?: ArticleAttachmentRequest[] // Optional attachments during update
 }
@@ -29,15 +33,18 @@ export interface UpdateArticleTranslation {
 	languageCode: string
 	isDefault?: boolean
 	title: string
-	summary: string
+	summary?: string
 	body: string
+	metaTitle?: string
+	metaDescription?: string
 }
 
 export interface ArticleResponse {
 	id: number
 	slug: string
 	views: number
-	date: string
+	publishedAt: string | null
+	isPublished: boolean
 	categoryId: number
 	createdAt: string
 	updatedAt: string
@@ -56,6 +63,7 @@ export interface ArticleAttachmentResponse {
 	attachmentId: number
 	type: string
 	order: number
+	caption?: string
 	attachment: {
 		id: number
 		originalName: string
@@ -79,8 +87,10 @@ export interface ArticleTranslationResponse {
 	languageCode: string
 	isDefault: boolean
 	title: string
-	summary: string
+	summary?: string
 	body: string
+	metaTitle?: string
+	metaDescription?: string
 	language: {
 		code: string
 		name: string
@@ -98,6 +108,7 @@ export interface GetArticlesQuery {
 
 export interface ArticleAttachmentRequest {
 	attachmentId: number
-	type: "image" | "attachment" | "other"
+	type: "featured" | "gallery" | "attachment" | "other"
 	order: number
+	caption?: string
 }

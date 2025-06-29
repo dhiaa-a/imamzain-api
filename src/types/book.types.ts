@@ -2,10 +2,13 @@
 
 export interface CreateBookRequest {
   slug?: string; // Optional - will be auto-generated if not provided
+  isbn?: string;
   pages: number;
   parts: number;
   partNumber: number;
   totalParts: number;
+  publishYear?: string;
+  isPublished?: boolean;
   categoryId: number;
   translations: CreateBookTranslation[];
   attachments?: BookAttachmentRequest[]; // Optional attachments during creation
@@ -15,19 +18,23 @@ export interface CreateBookTranslation {
   languageCode: string;
   isDefault: boolean;
   title: string;
-  author: string;
-  printHouse: string;
-  printDate: string;
-  series: string;
-  names?: string[]; // Array of book names
+  author?: string;
+  publisher?: string;
+  description?: string;
+  series?: string;
+  metaTitle?: string;
+  metaDescription?: string;
 }
 
 export interface UpdateBookRequest {
   slug?: string;
+  isbn?: string;
   pages?: number;
   parts?: number;
   partNumber?: number;
   totalParts?: number;
+  publishYear?: string;
+  isPublished?: boolean;
   categoryId?: number;
   translations?: UpdateBookTranslation[];
   attachments?: BookAttachmentRequest[];
@@ -38,28 +45,34 @@ export interface UpdateBookTranslation {
   languageCode: string;
   isDefault?: boolean;
   title: string;
-  author: string;
-  printHouse: string;
-  printDate: string;
-  series: string;
-  names?: string[];
+  author?: string;
+  publisher?: string;
+  description?: string;
+  series?: string;
+  metaTitle?: string;
+  metaDescription?: string;
 }
 
 export interface BookResponse {
   id: number;
   slug: string;
-  pages: number;
-  parts: number;
+  isbn?: string;
+  pages?: number;
+  parts?: number;
   views: number;
-  partNumber: number;
-  totalParts: number;
+  partNumber?: number;
+  totalParts?: number;
+  publishYear?: string;
+  isPublished: boolean;
   categoryId: number;
   createdAt: string;
   updatedAt: string;
   category: {
     id: number;
     slug: string;
-    name: string;
+    parentId?: number;
+    sortOrder: number;
+    isActive: boolean;
   };
   translations: BookTranslationResponse[];
   attachments: BookAttachmentResponse[];
@@ -71,11 +84,12 @@ export interface BookTranslationResponse {
   languageCode: string;
   isDefault: boolean;
   title: string;
-  author: string;
-  printHouse: string;
-  printDate: string;
-  series: string;
-  names: string[];
+  author?: string;
+  publisher?: string;
+  description?: string;
+  series?: string;
+  metaTitle?: string;
+  metaDescription?: string;
   language: {
     code: string;
     name: string;
@@ -87,6 +101,7 @@ export interface BookAttachmentRequest {
   attachmentId: number;
   type: 'cover' | 'pdf' | 'other';
   order: number;
+  caption?: string;
 }
 
 export interface BookAttachmentResponse {
@@ -95,6 +110,7 @@ export interface BookAttachmentResponse {
   attachmentId: number;
   type: string;
   order: number;
+  caption?: string;
   attachment: {
     id: number;
     originalName: string;
@@ -122,20 +138,67 @@ export interface GetBooksQuery {
   series?: string;
 }
 
-// Book Type (Category) interfaces
-export interface CreateBookTypeRequest {
+// Book Category interfaces
+export interface CreateBookCategoryRequest {
   slug: string;
+  parentId?: number;
+  sortOrder?: number;
+  isActive?: boolean;
+  translations: CreateBookCategoryTranslation[];
+}
+
+export interface CreateBookCategoryTranslation {
+  languageCode: string;
+  isDefault: boolean;
   name: string;
+  description?: string;
+  metaTitle?: string;
+  metaDescription?: string;
 }
 
-export interface UpdateBookTypeRequest {
+export interface UpdateBookCategoryRequest {
   slug?: string;
-  name?: string;
+  parentId?: number;
+  sortOrder?: number;
+  isActive?: boolean;
+  translations?: UpdateBookCategoryTranslation[];
 }
 
-export interface BookTypeResponse {
+export interface UpdateBookCategoryTranslation {
+  id?: number;
+  languageCode: string;
+  isDefault?: boolean;
+  name: string;
+  description?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+}
+
+export interface BookCategoryResponse {
   id: number;
   slug: string;
+  parentId?: number;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  booksCount: number;
+  translations: BookCategoryTranslationResponse[];
+  children?: BookCategoryResponse[];
+}
+
+export interface BookCategoryTranslationResponse {
+  id: number;
+  categoryId: number;
+  languageCode: string;
+  isDefault: boolean;
   name: string;
-  booksCount?: number;
+  description?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  language: {
+    code: string;
+    name: string;
+    nativeName: string;
+  };
 }

@@ -1,3 +1,4 @@
+// src/controllers/auth.controller.ts
 import { Request, Response, NextFunction } from "express"
 import {
 	loginUser,
@@ -30,7 +31,7 @@ export async function login(
 			httpOnly: true,
 			secure: process.env.NODE_ENV === "production",
 			sameSite: "strict",
-			maxAge: 1000 * 60 * 60 * 24, // e.g. 1 day
+			maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
 		})
 
 		res.json({ success: true, data: { token: tokens.accessToken, user } })
@@ -89,8 +90,12 @@ export async function logout(
 	const token = req.cookies.refreshToken
 	try {
 		await logoutUser(token)
-		res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" })
-		res.json({ success: true, message: "Logged out" })
+		res.clearCookie("refreshToken", { 
+			httpOnly: true, 
+			sameSite: "strict",
+			secure: process.env.NODE_ENV === "production"
+		})
+		res.json({ success: true, message: "Logged out successfully" })
 	} catch (err) {
 		next(err)
 	}

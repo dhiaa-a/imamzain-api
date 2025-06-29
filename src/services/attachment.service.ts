@@ -4,10 +4,8 @@ import {
   CreateAttachmentRequest, 
   UpdateAttachmentRequest, 
   GetAttachmentsQuery,
-  AttachmentResponse,
-  ArticleAttachmentRequest 
+  AttachmentResponse
 } from "../types/attachment.types";
-import { env } from "../config/env";
 import fs from "fs";
 import path from "path";
 
@@ -20,8 +18,8 @@ export async function createAttachment(data: CreateAttachmentRequest): Promise<A
       mimeType: data.mimeType,
       size: data.size,
       disk: data.disk || 'local',
-      collection: data.collection,
-      altText: data.altText,
+      collection: data.collection || null,
+      altText: data.altText || null,
       metadata: data.metadata || {}
     }
   });
@@ -129,7 +127,17 @@ export async function deleteAttachment(id: number): Promise<void> {
     where: { attachmentsId: id }
   });
 
-  if (articleAttachments.length > 0) {
+  // Check if attachment is used in any research
+  const researchAttachments = await prisma.researchAttachments.findMany({
+    where: { attachmentsId: id }
+  });
+
+  // Check if attachment is used in any books
+  const bookAttachments = await prisma.bookAttachments.findMany({
+    where: { attachmentsId: id }
+  });
+
+  if (articleAttachments.length > 0 || researchAttachments.length > 0 || bookAttachments.length > 0) {
     throw new Error("ATTACHMENT_IN_USE");
   }
 
@@ -149,12 +157,7 @@ export async function deleteAttachment(id: number): Promise<void> {
   });
 }
 
-
 function formatAttachmentResponse(attachment: any): AttachmentResponse {
-  // const baseUrl = env.NODE_ENV === 'production' 
-  //   ? env.BASE_URL || 'https://api.example.com' 
-  //   : `http://localhost:${env.PORT}`;
-
   return {
     id: attachment.id,
     originalName: attachment.originalName,

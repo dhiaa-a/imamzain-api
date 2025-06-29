@@ -1,5 +1,4 @@
 // src/types/attachment.types.ts
-import { Request } from "express";
 
 export interface CreateAttachmentRequest {
   originalName: string;
@@ -25,22 +24,6 @@ export interface UpdateAttachmentRequest {
   metadata?: Record<string, any>;
 }
 
-export interface AttachmentResponse {
-  id: number;
-  originalName: string;
-  fileName: string;
-  path: string;
-  mimeType: string;
-  size: number;
-  disk: string;
-  collection?: string;
-  altText?: string;
-  metadata?: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
-  url: string; // Generated URL for accessing the file
-}
-
 export interface GetAttachmentsQuery {
   page?: number;
   limit?: number;
@@ -50,56 +33,36 @@ export interface GetAttachmentsQuery {
   disk?: string;
 }
 
-export interface ArticleAttachmentRequest {
-  attachmentId: number;
-  type: 'image' | 'attachment' | 'other';
-  order: number;
-}
-
-export interface ArticleWithAttachments {
+export interface AttachmentResponse {
   id: number;
-  slug: string;
-  views: number;
-  date: string;
-  categoryId: number;
+  originalName: string;
+  fileName: string;
+  path: string;
+  mimeType: string;
+  size: number;
+  disk: string;
+  collection: string | null;
+  altText: string | null;
+  metadata: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;
-  category: {
-    id: number;
-    slug: string;
-    name: string;
-  };
-  translations: any[];
-  attachments: ArticleAttachmentResponse[];
+  url: string;
 }
 
-export interface ArticleAttachmentResponse {
-  id: number;
-  articleId: number;
+export interface ArticleAttachmentRequest {
   attachmentId: number;
-  type: string;
+  type: "featured" | "gallery" | "attachment" | "other";
   order: number;
-  attachment: AttachmentResponse;
+  caption?: string;
 }
 
-// File upload types
-export interface FileUploadRequest {
-  collection?: string;
-  altText?: string;
-  metadata?: Record<string, any>;
-}
-
-// File type validation
-export const ALLOWED_IMAGE_TYPES = [
+// File upload constraints
+export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
-  'image/jpg', 
+  'image/jpg',
   'image/png',
   'image/gif',
   'image/webp',
-  'image/svg+xml'
-];
-
-export const ALLOWED_DOCUMENT_TYPES = [
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -108,12 +71,9 @@ export const ALLOWED_DOCUMENT_TYPES = [
   'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'text/plain',
-  'text/csv'
-];
-
-export const ALLOWED_MIME_TYPES = [
-  ...ALLOWED_IMAGE_TYPES,
-  ...ALLOWED_DOCUMENT_TYPES
+  'text/csv',
+  'application/zip',
+  'application/x-rar-compressed'
 ];
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB

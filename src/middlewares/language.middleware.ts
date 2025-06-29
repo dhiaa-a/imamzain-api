@@ -7,34 +7,41 @@ export async function validateLanguage(
 	res: Response,
 	next: NextFunction,
 ): Promise<void> {
-	const { lang } = req.params
+	try {
+		const { lang } = req.params
 
-	if (!lang) {
-		res.status(400).json({
-			success: false,
-			error: {
-				code: "BAD_REQUEST",
-				message: "Language code is required",
+		if (!lang) {
+			res.status(400).json({
+				success: false,
+				error: {
+					code: "BAD_REQUEST",
+					message: "Language parameter is required",
+				},
+			})
+			return
+		}
+
+		// Check if language exists and is active
+		const language = await prisma.language.findFirst({
+			where: {
+				code: lang,
+				isActive: true,
 			},
 		})
-		return
+
+		if (!language) {
+			res.status(400).json({
+				success: false,
+				error: {
+					code: "INVALID_LANGUAGE",
+					message: "Invalid or inactive language code",
+				},
+			})
+			return
+		}
+
+		next()
+	} catch (error) {
+		next(error)
 	}
-
-	// Check if language exists in database
-	const language = await prisma.language.findUnique({
-		where: { code: lang },
-	})
-
-	if (!language) {
-		res.status(400).json({
-			success: false,
-			error: {
-				code: "BAD_REQUEST",
-				message: `Language '${lang}' is not supported`,
-			},
-		})
-		return
-	}
-
-	next()
 }

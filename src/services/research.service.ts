@@ -13,7 +13,7 @@ import { generateSlug, generateUniqueSlug, isValidSlug } from "../utils/slug.uti
 
 export async function createResearch(data: CreateResearchRequest): Promise<ResearchResponse> {
   // Check if category exists
-  const category = await prisma.researchTranslationCategory.findUnique({
+  const category = await prisma.researchCategory.findUnique({
     where: { id: data.categoryId }
   });
   
@@ -83,16 +83,21 @@ export async function createResearch(data: CreateResearchRequest): Promise<Resea
   const research = await prisma.research.create({
     data: {
       slug: uniqueSlug,
-      date: new Date(data.date),
+      publishedAt: new Date(data.date),
       views: 0,
       pages: data.pages,
+      isPublished: data.isPublished || false,
       categoryId: data.categoryId,
       translations: {
         create: data.translations.map(translation => ({
           languageCode: translation.languageCode,
           isDefault: translation.isDefault,
           title: translation.title,
-          abstract: translation.abstract
+          abstract: translation.abstract,
+          keywords: translation.keywords,
+          authors: translation.authors,
+          metaTitle: translation.metaTitle,
+          metaDescription: translation.metaDescription
         }))
       },
       ...(data.attachments && data.attachments.length > 0 && {
@@ -100,7 +105,8 @@ export async function createResearch(data: CreateResearchRequest): Promise<Resea
           create: data.attachments.map(attachment => ({
             attachmentsId: attachment.attachmentId,
             type: attachment.type,
-            order: attachment.order
+            order: attachment.order,
+            caption: attachment.caption
           }))
         }
       })
@@ -244,17 +250,17 @@ export async function getResearch(query: GetResearchQuery = {}) {
   if (year) {
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year + 1, 0, 1);
-    where.date = {
+    where.publishedAt = {
       gte: yearStart,
       lt: yearEnd
     };
   } else if (dateFrom || dateTo) {
-    where.date = {};
+    where.publishedAt = {};
     if (dateFrom) {
-      where.date.gte = new Date(dateFrom);
+      where.publishedAt.gte = new Date(dateFrom);
     }
     if (dateTo) {
-      where.date.lte = new Date(dateTo);
+      where.publishedAt.lte = new Date(dateTo);
     }
   }
 
@@ -265,7 +271,9 @@ export async function getResearch(query: GetResearchQuery = {}) {
         ...(search && {
           OR: [
             { title: { contains: search, mode: 'insensitive' } },
-            { abstract: { contains: search, mode: 'insensitive' } }
+            { abstract: { contains: search, mode: 'insensitive' } },
+            { keywords: { contains: search, mode: 'insensitive' } },
+            { authors: { contains: search, mode: 'insensitive' } }
           ]
         })
       }
@@ -290,7 +298,7 @@ export async function getResearch(query: GetResearchQuery = {}) {
           orderBy: { order: 'asc' }
         }
       },
-      orderBy: { date: 'desc' },
+      orderBy: { publishedAt: 'desc' },
       skip,
       take: limit
     }),
@@ -395,8 +403,9 @@ export async function updateResearch(id: number, data: UpdateResearchRequest): P
   const updateData: any = {};
   
   if (slugToUpdate) updateData.slug = slugToUpdate;
-  if (data.date) updateData.date = new Date(data.date);
+  if (data.date) updateData.publishedAt = new Date(data.date);
   if (data.pages !== undefined) updateData.pages = data.pages;
+  if (data.isPublished !== undefined) updateData.isPublished = data.isPublished;
   if (data.categoryId) updateData.categoryId = data.categoryId;
 
   const research = await prisma.research.update({
@@ -430,7 +439,11 @@ export async function updateResearch(id: number, data: UpdateResearchRequest): P
         languageCode: translation.languageCode,
         isDefault: translation.isDefault || false,
         title: translation.title,
-        abstract: translation.abstract
+        abstract: translation.abstract,
+        keywords: translation.keywords,
+        authors: translation.authors,
+        metaTitle: translation.metaTitle,
+        metaDescription: translation.metaDescription
       }))
     });
   }
@@ -447,7 +460,8 @@ export async function updateResearch(id: number, data: UpdateResearchRequest): P
           researchId: id,
           attachmentsId: attachment.attachmentId,
           type: attachment.type,
-          order: attachment.order
+          order: attachment.order,
+          caption: attachment.caption
         }))
       });
     }
@@ -501,7 +515,7 @@ export async function deleteResearch(id: number): Promise<void> {
 
 // Research Category functions
 export async function createResearchCategory(data: CreateResearchCategoryRequest): Promise<ResearchCategoryResponse> {
-  const existingCategory = await prisma.researchTranslationCategory.findUnique({
+  const existingCategory = await prisma.researchCategory.findUnique({
     where: { slug: data.slug }
   });
 
@@ -509,36 +523,61 @@ export async function createResearchCategory(data: CreateResearchCategoryRequest
     throw new Error("RESEARCH_CATEGORY_SLUG_EXISTS");
   }
 
-  const category = await prisma.researchTranslationCategory.create({
+  const category = await prisma.researchCategory.create({
     data: {
       slug: data.slug,
-      name: data.name
+      parentId: data.parentId,
+      sortOrder: data.sortOrder || 0,
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      ...(data.translations && data.translations.length > 0 && {
+        translations: {
+          create: data.translations.map(translation => ({
+            languageCode: translation.languageCode,
+            isDefault: translation.isDefault || false,
+            name: translation.name,
+            description: translation.description,
+            metaTitle: translation.metaTitle,
+            metaDescription: translation.metaDescription
+          }))
+        }
+      })
+    },
+    include: {
+      translations: {
+        include: {
+          language: true
+        }
+      },
+      _count: {
+        select: { researches: true }
+      }
     }
   });
 
   return formatResearchCategoryResponse(category);
 }
 
-export async function getResearchCategories(): Promise<ResearchCategoryResponse[]> {
-  const categories = await prisma.researchTranslationCategory.findMany({
+export async function getResearchCategories(languageCode?: string): Promise<ResearchCategoryResponse[]> {
+  const categories = await prisma.researchCategory.findMany({
     include: {
+      translations: {
+        where: languageCode ? { languageCode } : { isDefault: true },
+        include: {
+          language: true
+        }
+      },
       _count: {
         select: { researches: true }
       }
     },
-    orderBy: { name: 'asc' }
+    orderBy: { sortOrder: 'asc' }
   });
 
-  return categories.map(category => ({
-    id: category.id,
-    slug: category.slug || undefined,
-    name: category.name || undefined,
-    researchCount: category._count.researches
-  }));
+  return categories.map(formatResearchCategoryResponse);
 }
 
 export async function updateResearchCategory(id: number, data: UpdateResearchCategoryRequest): Promise<ResearchCategoryResponse> {
-  const existingCategory = await prisma.researchTranslationCategory.findUnique({
+  const existingCategory = await prisma.researchCategory.findUnique({
     where: { id }
   });
 
@@ -547,7 +586,7 @@ export async function updateResearchCategory(id: number, data: UpdateResearchCat
   }
 
   if (data.slug && data.slug !== existingCategory.slug) {
-    const slugExists = await prisma.researchTranslationCategory.findUnique({
+    const slugExists = await prisma.researchCategory.findUnique({
       where: { slug: data.slug }
     });
     if (slugExists) {
@@ -555,19 +594,69 @@ export async function updateResearchCategory(id: number, data: UpdateResearchCat
     }
   }
 
-  const category = await prisma.researchTranslationCategory.update({
+  const category = await prisma.researchCategory.update({
     where: { id },
     data: {
       ...(data.slug && { slug: data.slug }),
-      ...(data.name && { name: data.name })
+      ...(data.parentId !== undefined && { parentId: data.parentId }),
+      ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
+      ...(data.isActive !== undefined && { isActive: data.isActive })
+    },
+    include: {
+      translations: {
+        include: {
+          language: true
+        }
+      },
+      _count: {
+        select: { researches: true }
+      }
     }
   });
+
+  // Update translations if provided
+  if (data.translations) {
+    // Delete existing translations
+    await prisma.researchCategoryTranslation.deleteMany({
+      where: { categoryId: id }
+    });
+
+    // Create new translations
+    await prisma.researchCategoryTranslation.createMany({
+      data: data.translations.map(translation => ({
+        categoryId: id,
+        languageCode: translation.languageCode,
+        isDefault: translation.isDefault || false,
+        name: translation.name,
+        description: translation.description,
+        metaTitle: translation.metaTitle,
+        metaDescription: translation.metaDescription
+      }))
+    });
+
+    // Fetch updated category with new translations
+    const updatedCategory = await prisma.researchCategory.findUnique({
+      where: { id },
+      include: {
+        translations: {
+          include: {
+            language: true
+          }
+        },
+        _count: {
+          select: { researches: true }
+        }
+      }
+    });
+
+    return formatResearchCategoryResponse(updatedCategory!);
+  }
 
   return formatResearchCategoryResponse(category);
 }
 
 export async function deleteResearchCategory(id: number): Promise<void> {
-  const category = await prisma.researchTranslationCategory.findUnique({
+  const category = await prisma.researchCategory.findUnique({
     where: { id },
     include: {
       _count: {
@@ -584,7 +673,12 @@ export async function deleteResearchCategory(id: number): Promise<void> {
     throw new Error("RESEARCH_CATEGORY_HAS_RESEARCH");
   }
 
-  await prisma.researchTranslationCategory.delete({
+  // Delete translations first
+  await prisma.researchCategoryTranslation.deleteMany({
+    where: { categoryId: id }
+  });
+
+  await prisma.researchCategory.delete({
     where: { id }
   });
 }
@@ -597,9 +691,10 @@ function formatResearchResponse(research: any): ResearchResponse {
   return {
     id: research.id,
     slug: research.slug,
-    date: research.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+    publishedAt: research.publishedAt ? research.publishedAt.toISOString().split('T')[0] : null,
     views: research.views,
     pages: research.pages,
+    isPublished: research.isPublished,
     categoryId: research.categoryId,
     createdAt: research.createdAt.toISOString(),
     updatedAt: research.updatedAt.toISOString(),
@@ -611,6 +706,10 @@ function formatResearchResponse(research: any): ResearchResponse {
       isDefault: translation.isDefault,
       title: translation.title,
       abstract: translation.abstract,
+      keywords: translation.keywords,
+      authors: translation.authors,
+      metaTitle: translation.metaTitle,
+      metaDescription: translation.metaDescription,
       language: translation.language
     })),
     attachments: research.attachments ? research.attachments.map((item: any) => ({
@@ -619,6 +718,7 @@ function formatResearchResponse(research: any): ResearchResponse {
       attachmentId: item.attachmentsId,
       type: item.type,
       order: item.order,
+      caption: item.caption,
       attachment: {
         id: item.attachment.id,
         originalName: item.attachment.originalName,
@@ -641,7 +741,23 @@ function formatResearchResponse(research: any): ResearchResponse {
 function formatResearchCategoryResponse(category: any): ResearchCategoryResponse {
   return {
     id: category.id,
-    slug: category.slug || undefined,
-    name: category.name || undefined
+    slug: category.slug,
+    parentId: category.parentId,
+    sortOrder: category.sortOrder,
+    isActive: category.isActive,
+    createdAt: category.createdAt.toISOString(),
+    updatedAt: category.updatedAt.toISOString(),
+    translations: category.translations.map((translation: any) => ({
+      id: translation.id,
+      categoryId: translation.categoryId,
+      languageCode: translation.languageCode,
+      isDefault: translation.isDefault,
+      name: translation.name,
+      description: translation.description,
+      metaTitle: translation.metaTitle,
+      metaDescription: translation.metaDescription,
+      language: translation.language
+    })),
+    researchCount: category._count?.researches || 0
   };
 }

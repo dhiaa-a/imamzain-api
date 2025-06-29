@@ -1,52 +1,71 @@
 // src/types/research.types.ts
-
 export interface CreateResearchRequest {
-  slug?: string; // Optional - will be auto-generated if not provided
-  date: string; // ISO date string
-  pages: number;
+  slug?: string;
+  date: string;              // This maps to publishedAt in schema
+  pages?: number;
+  isPublished?: boolean;     // New field
   categoryId: number;
-  translations: CreateResearchTranslation[];
-  attachments?: ResearchAttachmentRequest[]; // Optional attachments during creation
-}
-
-export interface CreateResearchTranslation {
-  languageCode: string;
-  isDefault: boolean;
-  title: string;
-  abstract: string;
+  translations: CreateResearchTranslationRequest[];
+  attachments?: CreateResearchAttachmentRequest[];
 }
 
 export interface UpdateResearchRequest {
   slug?: string;
-  date?: string;
+  date?: string;             // This maps to publishedAt in schema
   pages?: number;
+  isPublished?: boolean;     // New field
   categoryId?: number;
-  translations?: UpdateResearchTranslation[];
-  attachments?: ResearchAttachmentRequest[];
+  translations?: UpdateResearchTranslationRequest[];
+  attachments?: UpdateResearchAttachmentRequest[];
 }
 
-export interface UpdateResearchTranslation {
-  id?: number; // if updating existing translation
+export interface CreateResearchTranslationRequest {
   languageCode: string;
-  isDefault?: boolean;
+  isDefault: boolean;
   title: string;
-  abstract: string;
+  abstract?: string;
+  keywords?: string;         // New field
+  authors?: string;          // New field
+  metaTitle?: string;        // New field
+  metaDescription?: string;  // New field
+}
+
+export interface UpdateResearchTranslationRequest {
+  languageCode: string;
+  isDefault: boolean;
+  title: string;
+  abstract?: string;
+  keywords?: string;         // New field
+  authors?: string;          // New field
+  metaTitle?: string;        // New field
+  metaDescription?: string;  // New field
+}
+
+export interface CreateResearchAttachmentRequest {
+  attachmentId: number;
+  type: 'pdf' | 'cover' | 'attachment' | 'other';
+  order: number;
+  caption?: string; // New field
+}
+
+export interface UpdateResearchAttachmentRequest {
+  attachmentId: number;
+  type: 'pdf' | 'cover' | 'attachment' | 'other';
+  order: number;
+  caption?: string; // New field
 }
 
 export interface ResearchResponse {
   id: number;
   slug: string;
-  date: string;
+  publishedAt: string | null; // Updated from date
   views: number;
-  pages: number;
+  pages?: number;
+  isPublished: boolean;       // New field
   categoryId: number;
   createdAt: string;
   updatedAt: string;
-  category: {
-    id: number;
-    slug?: string;
-    name?: string;
-  };
+  category: any;
   translations: ResearchTranslationResponse[];
   attachments: ResearchAttachmentResponse[];
 }
@@ -57,18 +76,12 @@ export interface ResearchTranslationResponse {
   languageCode: string;
   isDefault: boolean;
   title: string;
-  abstract: string;
-  language: {
-    code: string;
-    name: string;
-    nativeName: string;
-  };
-}
-
-export interface ResearchAttachmentRequest {
-  attachmentId: number;
-  type: 'pdf' | 'image' | 'other';
-  order: number;
+  abstract?: string;
+  keywords?: string;         // New field
+  authors?: string;          // New field
+  metaTitle?: string;        // New field
+  metaDescription?: string;  // New field
+  language: any;
 }
 
 export interface ResearchAttachmentResponse {
@@ -77,6 +90,7 @@ export interface ResearchAttachmentResponse {
   attachmentId: number;
   type: string;
   order: number;
+  caption?: string; // New field
   attachment: {
     id: number;
     originalName: string;
@@ -87,11 +101,69 @@ export interface ResearchAttachmentResponse {
     disk: string;
     collection?: string;
     altText?: string;
-    metadata?: Record<string, any>;
+    metadata: any;
     createdAt: string;
     updatedAt: string;
     url: string;
   };
+}
+
+export interface CreateResearchCategoryRequest {
+  slug: string;
+  parentId?: number;         // New field
+  sortOrder?: number;        // New field
+  isActive?: boolean;        // New field
+  translations?: CreateResearchCategoryTranslationRequest[];
+}
+
+export interface UpdateResearchCategoryRequest {
+  slug?: string;
+  parentId?: number;         // New field
+  sortOrder?: number;        // New field
+  isActive?: boolean;        // New field
+  translations?: UpdateResearchCategoryTranslationRequest[];
+}
+
+export interface CreateResearchCategoryTranslationRequest {
+  languageCode: string;
+  isDefault: boolean;
+  name: string;
+  description?: string;
+  metaTitle?: string;        // New field
+  metaDescription?: string;  // New field
+}
+
+export interface UpdateResearchCategoryTranslationRequest {
+  languageCode: string;
+  isDefault: boolean;
+  name: string;
+  description?: string;
+  metaTitle?: string;        // New field
+  metaDescription?: string;  // New field
+}
+
+export interface ResearchCategoryResponse {
+  id: number;
+  slug: string;
+  parentId?: number;         // New field
+  sortOrder: number;         // New field
+  isActive: boolean;         // New field
+  createdAt: string;         // New field
+  updatedAt: string;         // New field
+  translations: ResearchCategoryTranslationResponse[];
+  researchCount: number;
+}
+
+export interface ResearchCategoryTranslationResponse {
+  id: number;
+  categoryId: number;
+  languageCode: string;
+  isDefault: boolean;
+  name: string;
+  description?: string;
+  metaTitle?: string;        // New field
+  metaDescription?: string;  // New field
+  language: any;
 }
 
 export interface GetResearchQuery {
@@ -105,20 +177,10 @@ export interface GetResearchQuery {
   dateTo?: string;
 }
 
-// Research Category interfaces
-export interface CreateResearchCategoryRequest {
-  slug: string;
-  name: string;
-}
-
-export interface UpdateResearchCategoryRequest {
-  slug?: string;
-  name?: string;
-}
-
-export interface ResearchCategoryResponse {
-  id: number;
-  slug?: string;
-  name?: string;
-  researchCount?: number;
+export interface GetResearchCategoriesQuery {
+  page?: number;
+  limit?: number;
+  languageCode?: string;
+  search?: string;
+  includeCount?: boolean;
 }

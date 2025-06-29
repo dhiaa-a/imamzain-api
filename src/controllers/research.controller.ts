@@ -23,7 +23,7 @@ export async function createResearchHandler(
     const researchData: CreateResearchRequest = req.body;
     const { lang } = req.params;
     
-    // Basic validation
+    // Basic validation - updated for new schema
     if (!researchData.date || !researchData.pages || !researchData.categoryId || !researchData.translations) {
       res.status(400).json({
         success: false,
@@ -407,12 +407,12 @@ export async function createResearchCategoryHandler(
   try {
     const categoryData: CreateResearchCategoryRequest = req.body;
     
-    if (!categoryData.slug || !categoryData.name) {
+    if (!categoryData.slug) {
       res.status(400).json({
         success: false,
         error: {
           code: "BAD_REQUEST",
-          message: "Missing required fields: slug, name"
+          message: "Missing required field: slug"
         }
       });
       return;
@@ -446,7 +446,8 @@ export async function getResearchCategoriesHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const categories = await getResearchCategories();
+    const { lang } = req.params;
+    const categories = await getResearchCategories(lang);
     
     res.json({
       success: true,
