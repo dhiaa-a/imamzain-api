@@ -24,20 +24,12 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/yamljs": "^0.2.34",
     "nodemon": "^3.1.10",
-<<<<<<< HEAD
-    "prisma": "^6.10.1",
-=======
     "prisma": "^6.7.0",
->>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
   "dependencies": {
-<<<<<<< HEAD
-    "@prisma/client": "^6.10.1",
-=======
     "@prisma/client": "^6.7.0",
->>>>>>> b3efe0ab36e924e0d59cc919eff252908792b26c
     "@types/cookie-parser": "^1.4.9",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^5.1.1",
