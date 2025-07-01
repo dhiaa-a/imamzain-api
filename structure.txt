@@ -1,71 +1,11 @@
-Project Folder Structure: C:\Users\aboturab\Desktop\imamzain-api
-├── 📁 dist
-│   ├── 📁 config
-│   │   └── 📄 env.js
-│   ├── 📁 controllers
-│   │   ├── 📄 article.controller.js
-│   │   ├── 📄 attachment.controller.js
-│   │   ├── 📄 auth.controller.js
-│   │   ├── 📄 book.controller.js
-│   │   ├── 📄 category.controller.js
-│   │   ├── 📄 research.controller.js
-│   │   └── 📄 user.controller.js
-│   ├── 📁 database
-│   │   └── 📄 prisma.js
-│   ├── 📄 index.js
-│   ├── 📁 middlewares
-│   │   ├── 📄 auth.middleware.js
-│   │   ├── 📄 error.middleware.js
-│   │   └── 📄 language.middleware.js
-│   ├── 📁 routes
-│   │   ├── 📄 article.routes.js
-│   │   ├── 📄 attachment.routes.js
-│   │   ├── 📄 auth.routes.js
-│   │   ├── 📄 book.routes.js
-│   │   ├── 📄 category.routes.js
-│   │   ├── 📄 research.routes.js
-│   │   └── 📄 user.routes.js
-│   ├── 📁 services
-│   │   ├── 📄 article.service.js
-│   │   ├── 📄 attachment.service.js
-│   │   ├── 📄 auth.service.js
-│   │   ├── 📄 book.service.js
-│   │   ├── 📄 category.service.js
-│   │   └── 📄 research.service.js
-│   ├── 📁 types
-│   │   ├── 📄 article.types.js
-│   │   ├── 📄 attachment.types.js
-│   │   ├── 📄 book.types.js
-│   │   ├── 📄 category.types.js
-│   │   ├── 📄 language.types.js
-│   │   └── 📄 research.types.js
-│   ├── 📁 utils
-│   │   └── 📄 slug.utils.js
-│   └── 📁 validations
-│       ├── 📄 article.validations.js
-│       ├── 📄 attachment.validations.js
-│       ├── 📄 book.validations.js
-│       ├── 📄 category.validations.js
-│       └── 📄 research.validations.js
+Project Folder Structure: D:\taqi_workspace\imamzain-api
 ├── 📄 file.js
 ├── 📄 nodemon.json
 ├── 📄 package-lock.json
 ├── 📄 package.json
 ├── 📁 prisma
 │   ├── 📁 migrations
-│   │   ├── 📁 20250506204635_init
-│   │   │   └── 📄 migration.sql
-│   │   ├── 📁 20250507075612_init
-│   │   │   └── 📄 migration.sql
-│   │   ├── 📁 20250507093426_init
-│   │   │   └── 📄 migration.sql
-│   │   ├── 📁 20250507102056_init
-│   │   │   └── 📄 migration.sql
-│   │   ├── 📁 20250508095022_add_refresh_tokens
-│   │   │   └── 📄 migration.sql
-│   │   ├── 📁 20250619065157_taqi
-│   │   │   └── 📄 migration.sql
-│   │   ├── 📁 20250619090517_ataqu
+│   │   ├── 📁 20250701074511_fix
 │   │   │   └── 📄 migration.sql
 │   │   └── 📄 migration_lock.toml
 │   ├── 📄 schema.prisma
@@ -79,7 +19,6 @@ Project Folder Structure: C:\Users\aboturab\Desktop\imamzain-api
 │   │   ├── 📄 attachment.controller.ts
 │   │   ├── 📄 auth.controller.ts
 │   │   ├── 📄 book.controller.ts
-│   │   ├── 📄 category.controller.ts
 │   │   ├── 📄 research.controller.ts
 │   │   └── 📄 user.controller.ts
 │   ├── 📁 database
@@ -90,13 +29,14 @@ Project Folder Structure: C:\Users\aboturab\Desktop\imamzain-api
 │   ├── 📁 middlewares
 │   │   ├── 📄 auth.middleware.ts
 │   │   ├── 📄 error.middleware.ts
-│   │   └── 📄 language.middleware.ts
+│   │   ├── 📄 language.middleware.ts
+│   │   └── 📄 validation.middleware.ts
+│   ├── 📁 models
 │   ├── 📁 routes
 │   │   ├── 📄 article.routes.ts
 │   │   ├── 📄 attachment.routes.ts
 │   │   ├── 📄 auth.routes.ts
 │   │   ├── 📄 book.routes.ts
-│   │   ├── 📄 category.routes.ts
 │   │   ├── 📄 research.routes.ts
 │   │   └── 📄 user.routes.ts
 │   ├── 📁 services
@@ -104,22 +44,23 @@ Project Folder Structure: C:\Users\aboturab\Desktop\imamzain-api
 │   │   ├── 📄 attachment.service.ts
 │   │   ├── 📄 auth.service.ts
 │   │   ├── 📄 book.service.ts
-│   │   ├── 📄 category.service.ts
 │   │   └── 📄 research.service.ts
 │   ├── 📁 types
 │   │   ├── 📄 article.types.ts
 │   │   ├── 📄 attachment.types.ts
+│   │   ├── 📄 auth.types.ts
 │   │   ├── 📄 book.types.ts
-│   │   ├── 📄 category.types.ts
+│   │   ├── 📄 error.types.ts
 │   │   ├── 📄 language.types.ts
+│   │   ├── 📄 middleware.types.ts
 │   │   └── 📄 research.types.ts
 │   ├── 📁 utils
 │   │   └── 📄 slug.utils.ts
 │   └── 📁 validations
 │       ├── 📄 article.validations.ts
 │       ├── 📄 attachment.validations.ts
+│       ├── 📄 auth.validations.ts
 │       ├── 📄 book.validations.ts
-│       ├── 📄 category.validations.ts
 │       └── 📄 research.validations.ts
 ├── 📄 structure.txt
 ├── 📄 tsconfig.json

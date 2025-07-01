@@ -385,9 +385,7 @@ model ArticleCategoryTranslation {
   languageCode String
   isDefault    Boolean @default(false)
   name         String
-  description  String?
-  metaTitle    String?
-  metaDescription String?
+
 
   category     ArticleCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   language     Language        @relation("ArticleCategoryLanguage", fields: [languageCode], references: [code])
@@ -400,10 +398,7 @@ model ResearchCategoryTranslation {
   categoryId   Int
   languageCode String
   isDefault    Boolean @default(false)
-  name         String
-  description  String?
-  metaTitle    String?
-  metaDescription String?
+  name         String 
 
   category     ResearchCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   language     Language         @relation("ResearchCategoryLanguage", fields: [languageCode], references: [code])
@@ -417,9 +412,6 @@ model BookCategoryTranslation {
   languageCode String
   isDefault    Boolean @default(false)
   name         String
-  description  String?
-  metaTitle    String?
-  metaDescription String?
 
   category     BookCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   language     Language     @relation("BookCategoryLanguage", fields: [languageCode], references: [code])

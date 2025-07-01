@@ -12,6 +12,9 @@ import articleRouter from "./routes/article.routes"
 import attachmentRouter from "./routes/attachment.routes"
 import bookRouter from "./routes/book.routes"
 import researchRouter from "./routes/research.routes"
+import articleCategoryRouter from "./routes/articleCategory.routes"
+import researchCategoryRouter from "./routes/researchCategory.routes"
+import bookCategoryRouter from "./routes/bookCategory.routes"
 import { authenticateJWT } from "./middlewares/auth.middleware"
 import { errorHandler } from "./middlewares/error.middleware"
 
@@ -63,19 +66,25 @@ app.use("/api/v1/users", authenticateJWT, userRoutes)
 // 9) Attachment routes (mixed public/protected)
 app.use("/api/v1/attachments", attachmentRouter)
 
-// 10) Language-specific article routes (JWT required for create/update/delete)
+// 10) Category routes (mixed public/protected)
+// Public GET operations, protected POST/PUT/DELETE operations
+app.use("/api/v1/article-categories", articleCategoryRouter)
+app.use("/api/v1/research-categories", researchCategoryRouter)
+app.use("/api/v1/book-categories", bookCategoryRouter)
+
+// 11) Language-specific article routes (JWT required for create/update/delete)
 app.use("/api/v1", articleRouter)
 
-// 11) Book routes (mixed public/protected)
+// 12) Book routes (mixed public/protected)
 app.use("/api/v1", bookRouter)
 
-// 12) Research routes (mixed public/protected)
+// 13) Research routes (mixed public/protected)
 app.use("/api/v1", researchRouter)
 
-// 13) Global error handler
+// 14) Global error handler
 app.use(errorHandler)
 
-// 14) Start server
+// 15) Start server
 app.listen(env.PORT, () => {
 	console.log(
 		`📡 [${env.NODE_ENV}] Listening on http://localhost:${env.PORT}`,
