@@ -8,16 +8,17 @@ import YAML from "yamljs"
 import { env } from "./config/env"
 import authRoutes from "./routes/auth.routes"
 import userRoutes from "./routes/user.routes"
-import articleRouter from "./routes/article.routes"
-import attachmentRouter from "./routes/attachment.routes"
-import bookRouter from "./routes/book.routes"
-import researchRouter from "./routes/research.routes"
-import articleCategoryRouter from "./routes/articleCategory.routes"
-import researchCategoryRouter from "./routes/researchCategory.routes"
-import bookCategoryRouter from "./routes/bookCategory.routes"
+// import articleRouter from "./routes/article.routes"
+// import attachmentRouter from "./routes/attachment.routes"
+// import bookRouter from "./routes/book.routes"
+// import researchRouter from "./routes/research.routes" 
+
+// import bookCategoryRouter from "./routes/bookCategory.routes"
 import { authenticateJWT } from "./middlewares/auth.middleware"
 import { errorHandler } from "./middlewares/error.middleware"
-
+import categoryRoutes from './routes/category.routes';
+import tagRoutes from './routes/tag.routes';
+import attachmentRouter from "./routes/attachment.routes"
 const app = express()
 
 // 1) JSON body parser
@@ -63,23 +64,30 @@ app.use("/api/v1/auth", authRoutes)
 // 8) Protected user routes (JWT required)
 app.use("/api/v1/users", authenticateJWT, userRoutes)
 
-// 9) Attachment routes (mixed public/protected)
-app.use("/api/v1/attachments", attachmentRouter)
 
-// 10) Category routes (mixed public/protected)
-// Public GET operations, protected POST/PUT/DELETE operations
-app.use("/api/v1/article-categories", articleCategoryRouter)
-app.use("/api/v1/research-categories", researchCategoryRouter)
-app.use("/api/v1/book-categories", bookCategoryRouter)
+
+
+app.use('/api/v1/:lang/categories', categoryRoutes);
+app.use('/api/v1/:lang/tags', tagRoutes);
+
+
+app.use('/api/v1/attachments', attachmentRouter);
+
+
+
+// 9) Attachment routes (mixed public/protected)
+// app.use("/api/v1/attachments", attachmentRouter)
+
+
 
 // 11) Language-specific article routes (JWT required for create/update/delete)
-app.use("/api/v1", articleRouter)
+// app.use("/api/v1", articleRouter)
 
 // 12) Book routes (mixed public/protected)
-app.use("/api/v1", bookRouter)
+// app.use("/api/v1", bookRouter)
 
 // 13) Research routes (mixed public/protected)
-app.use("/api/v1", researchRouter)
+// app.use("/api/v1", researchRouter)
 
 // 14) Global error handler
 app.use(errorHandler)

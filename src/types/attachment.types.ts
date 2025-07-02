@@ -1,15 +1,11 @@
-// src/types/attachment.types.ts
-
 export interface CreateAttachmentRequest {
   originalName: string;
   fileName: string;
   path: string;
   mimeType: string;
   size: number;
-  disk?: string;
-  collection?: string;
-  altText?: string;
-  metadata?: Record<string, any>;
+  altText?: string | null;
+  metadata?: any;
 }
 
 export interface UpdateAttachmentRequest {
@@ -18,19 +14,8 @@ export interface UpdateAttachmentRequest {
   path?: string;
   mimeType?: string;
   size?: number;
-  disk?: string;
-  collection?: string;
-  altText?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface GetAttachmentsQuery {
-  page?: number;
-  limit?: number;
-  mimeType?: string;
-  collection?: string;
-  search?: string;
-  disk?: string;
+  altText?: string | null;
+  metadata?: any;
 }
 
 export interface AttachmentResponse {
@@ -40,40 +25,51 @@ export interface AttachmentResponse {
   path: string;
   mimeType: string;
   size: number;
-  disk: string;
-  collection: string | null;
   altText: string | null;
-  metadata: Record<string, any> | null;
-  createdAt: string;
-  updatedAt: string;
-  url: string;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface ArticleAttachmentRequest {
-  attachmentId: number;
-  type: "featured" | "gallery" | "attachment" | "other";
-  order: number;
-  caption?: string;
+export interface AttachmentWithRelations extends AttachmentResponse {
+  articleAttachments?: {
+    id: number;
+    articleId: number;
+    order: number;
+  }[];
+  researchAttachments?: {
+    id: number;
+    researchId: number;
+    order: number;
+  }[];
+  bookAttachments?: {
+    id: number;
+    bookId: number;
+    order: number;
+  }[];
 }
 
-// File upload constraints
-export const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'text/plain',
-  'text/csv',
-  'application/zip',
-  'application/x-rar-compressed'
-];
+export interface AttachmentFilters {
+  mimeType?: string;
+  originalName?: string;
+  minSize?: number;
+  maxSize?: number;
+  createdAfter?: Date;
+  createdBefore?: Date;
+}
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export interface PaginatedAttachmentsResponse {
+  attachments: AttachmentResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface FileUploadMetadata {
+  width?: number;
+  height?: number;
+  duration?: number;
+  format?: string;
+  quality?: string;
+}

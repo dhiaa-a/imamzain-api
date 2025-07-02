@@ -1,6 +1,10 @@
+-- CreateEnum
+CREATE TYPE "ModelType" AS ENUM ('ARTICLE', 'RESEARCH', 'BOOK');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" SERIAL NOT NULL,
+    "fullName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "username" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
@@ -9,17 +13,6 @@ CREATE TABLE "User" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "UserProfile" (
-    "id" SERIAL NOT NULL,
-    "userId" INTEGER NOT NULL,
-    "fullName" TEXT,
-    "avatarUrl" TEXT,
-    "bio" TEXT,
-
-    CONSTRAINT "UserProfile_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -128,14 +121,56 @@ CREATE TABLE "Attachments" (
     "path" TEXT NOT NULL,
     "mimeType" TEXT NOT NULL,
     "size" INTEGER NOT NULL,
-    "disk" TEXT NOT NULL DEFAULT 'local',
-    "collection" TEXT,
     "altText" TEXT,
     "metadata" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Attachments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Tag" (
+    "id" SERIAL NOT NULL,
+    "slug" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Tag_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TagTranslation" (
+    "id" SERIAL NOT NULL,
+    "tagId" INTEGER NOT NULL,
+    "languageCode" TEXT NOT NULL,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "name" TEXT NOT NULL,
+
+    CONSTRAINT "TagTranslation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Category" (
+    "id" SERIAL NOT NULL,
+    "slug" TEXT NOT NULL,
+    "model" "ModelType" NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Category_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CategoryTranslation" (
+    "id" SERIAL NOT NULL,
+    "categoryId" INTEGER NOT NULL,
+    "languageCode" TEXT NOT NULL,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "name" TEXT NOT NULL,
+
+    CONSTRAINT "CategoryTranslation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -153,19 +188,6 @@ CREATE TABLE "Article" (
 );
 
 -- CreateTable
-CREATE TABLE "ArticleCategory" (
-    "id" SERIAL NOT NULL,
-    "slug" TEXT NOT NULL,
-    "parentId" INTEGER,
-    "sortOrder" INTEGER NOT NULL DEFAULT 0,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ArticleCategory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "ArticleTranslation" (
     "id" SERIAL NOT NULL,
     "articleId" INTEGER NOT NULL,
@@ -174,8 +196,6 @@ CREATE TABLE "ArticleTranslation" (
     "title" TEXT NOT NULL,
     "summary" TEXT,
     "body" TEXT NOT NULL,
-    "metaTitle" TEXT,
-    "metaDescription" TEXT,
 
     CONSTRAINT "ArticleTranslation_pkey" PRIMARY KEY ("id")
 );
@@ -185,11 +205,18 @@ CREATE TABLE "ArticleAttachments" (
     "id" SERIAL NOT NULL,
     "articleId" INTEGER NOT NULL,
     "attachmentsId" INTEGER NOT NULL,
-    "type" TEXT NOT NULL,
     "order" INTEGER NOT NULL DEFAULT 0,
-    "caption" TEXT,
 
     CONSTRAINT "ArticleAttachments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ArticleTag" (
+    "id" SERIAL NOT NULL,
+    "articleId" INTEGER NOT NULL,
+    "tagId" INTEGER NOT NULL,
+
+    CONSTRAINT "ArticleTag_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -208,19 +235,6 @@ CREATE TABLE "Research" (
 );
 
 -- CreateTable
-CREATE TABLE "ResearchCategory" (
-    "id" SERIAL NOT NULL,
-    "slug" TEXT NOT NULL,
-    "parentId" INTEGER,
-    "sortOrder" INTEGER NOT NULL DEFAULT 0,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ResearchCategory_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "ResearchTranslation" (
     "id" SERIAL NOT NULL,
     "researchId" INTEGER NOT NULL,
@@ -228,7 +242,6 @@ CREATE TABLE "ResearchTranslation" (
     "isDefault" BOOLEAN NOT NULL DEFAULT false,
     "title" TEXT NOT NULL,
     "abstract" TEXT,
-    "keywords" TEXT,
     "authors" TEXT,
     "metaTitle" TEXT,
     "metaDescription" TEXT,
@@ -241,11 +254,18 @@ CREATE TABLE "ResearchAttachments" (
     "id" SERIAL NOT NULL,
     "researchId" INTEGER NOT NULL,
     "attachmentsId" INTEGER NOT NULL,
-    "type" TEXT NOT NULL,
     "order" INTEGER NOT NULL DEFAULT 0,
-    "caption" TEXT,
 
     CONSTRAINT "ResearchAttachments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ResearchTag" (
+    "id" SERIAL NOT NULL,
+    "researchId" INTEGER NOT NULL,
+    "tagId" INTEGER NOT NULL,
+
+    CONSTRAINT "ResearchTag_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -265,19 +285,6 @@ CREATE TABLE "Book" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Book_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "BookCategory" (
-    "id" SERIAL NOT NULL,
-    "slug" TEXT NOT NULL,
-    "parentId" INTEGER,
-    "sortOrder" INTEGER NOT NULL DEFAULT 0,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "BookCategory_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -302,53 +309,18 @@ CREATE TABLE "BookAttachments" (
     "id" SERIAL NOT NULL,
     "bookId" INTEGER NOT NULL,
     "attachmentsId" INTEGER NOT NULL,
-    "type" TEXT NOT NULL,
     "order" INTEGER NOT NULL DEFAULT 0,
-    "caption" TEXT,
 
     CONSTRAINT "BookAttachments_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "ArticleCategoryTranslation" (
+CREATE TABLE "BookTag" (
     "id" SERIAL NOT NULL,
-    "categoryId" INTEGER NOT NULL,
-    "languageCode" TEXT NOT NULL,
-    "isDefault" BOOLEAN NOT NULL DEFAULT false,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "metaTitle" TEXT,
-    "metaDescription" TEXT,
+    "bookId" INTEGER NOT NULL,
+    "tagId" INTEGER NOT NULL,
 
-    CONSTRAINT "ArticleCategoryTranslation_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ResearchCategoryTranslation" (
-    "id" SERIAL NOT NULL,
-    "categoryId" INTEGER NOT NULL,
-    "languageCode" TEXT NOT NULL,
-    "isDefault" BOOLEAN NOT NULL DEFAULT false,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "metaTitle" TEXT,
-    "metaDescription" TEXT,
-
-    CONSTRAINT "ResearchCategoryTranslation_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "BookCategoryTranslation" (
-    "id" SERIAL NOT NULL,
-    "categoryId" INTEGER NOT NULL,
-    "languageCode" TEXT NOT NULL,
-    "isDefault" BOOLEAN NOT NULL DEFAULT false,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "metaTitle" TEXT,
-    "metaDescription" TEXT,
-
-    CONSTRAINT "BookCategoryTranslation_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "BookTag_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -356,9 +328,6 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
-
--- CreateIndex
-CREATE UNIQUE INDEX "UserProfile_userId_key" ON "UserProfile"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
@@ -385,10 +354,25 @@ CREATE UNIQUE INDEX "GroupPermission_groupId_permissionId_key" ON "GroupPermissi
 CREATE UNIQUE INDEX "RefreshToken_token_key" ON "RefreshToken"("token");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Article_slug_key" ON "Article"("slug");
+CREATE UNIQUE INDEX "Tag_slug_key" ON "Tag"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ArticleCategory_slug_key" ON "ArticleCategory"("slug");
+CREATE INDEX "Tag_slug_idx" ON "Tag"("slug");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TagTranslation_tagId_languageCode_key" ON "TagTranslation"("tagId", "languageCode");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Category_slug_key" ON "Category"("slug");
+
+-- CreateIndex
+CREATE INDEX "Category_model_idx" ON "Category"("model");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CategoryTranslation_categoryId_languageCode_key" ON "CategoryTranslation"("categoryId", "languageCode");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Article_slug_key" ON "Article"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ArticleTranslation_articleId_languageCode_key" ON "ArticleTranslation"("articleId", "languageCode");
@@ -397,10 +381,10 @@ CREATE UNIQUE INDEX "ArticleTranslation_articleId_languageCode_key" ON "ArticleT
 CREATE UNIQUE INDEX "ArticleAttachments_articleId_attachmentsId_key" ON "ArticleAttachments"("articleId", "attachmentsId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Research_slug_key" ON "Research"("slug");
+CREATE UNIQUE INDEX "ArticleTag_articleId_tagId_key" ON "ArticleTag"("articleId", "tagId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ResearchCategory_slug_key" ON "ResearchCategory"("slug");
+CREATE UNIQUE INDEX "Research_slug_key" ON "Research"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ResearchTranslation_researchId_languageCode_key" ON "ResearchTranslation"("researchId", "languageCode");
@@ -409,10 +393,10 @@ CREATE UNIQUE INDEX "ResearchTranslation_researchId_languageCode_key" ON "Resear
 CREATE UNIQUE INDEX "ResearchAttachments_researchId_attachmentsId_key" ON "ResearchAttachments"("researchId", "attachmentsId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Book_slug_key" ON "Book"("slug");
+CREATE UNIQUE INDEX "ResearchTag_researchId_tagId_key" ON "ResearchTag"("researchId", "tagId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BookCategory_slug_key" ON "BookCategory"("slug");
+CREATE UNIQUE INDEX "Book_slug_key" ON "Book"("slug");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "BookTranslation_bookId_languageCode_key" ON "BookTranslation"("bookId", "languageCode");
@@ -421,16 +405,7 @@ CREATE UNIQUE INDEX "BookTranslation_bookId_languageCode_key" ON "BookTranslatio
 CREATE UNIQUE INDEX "BookAttachments_bookId_attachmentsId_key" ON "BookAttachments"("bookId", "attachmentsId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ArticleCategoryTranslation_categoryId_languageCode_key" ON "ArticleCategoryTranslation"("categoryId", "languageCode");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ResearchCategoryTranslation_categoryId_languageCode_key" ON "ResearchCategoryTranslation"("categoryId", "languageCode");
-
--- CreateIndex
-CREATE UNIQUE INDEX "BookCategoryTranslation_categoryId_languageCode_key" ON "BookCategoryTranslation"("categoryId", "languageCode");
-
--- AddForeignKey
-ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "BookTag_bookId_tagId_key" ON "BookTag"("bookId", "tagId");
 
 -- AddForeignKey
 ALTER TABLE "ActivityLog" ADD CONSTRAINT "ActivityLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -463,10 +438,19 @@ ALTER TABLE "GroupPermission" ADD CONSTRAINT "GroupPermission_permissionId_fkey"
 ALTER TABLE "RefreshToken" ADD CONSTRAINT "RefreshToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Article" ADD CONSTRAINT "Article_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "ArticleCategory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "TagTranslation" ADD CONSTRAINT "TagTranslation_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ArticleCategory" ADD CONSTRAINT "ArticleCategory_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "ArticleCategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "TagTranslation" ADD CONSTRAINT "TagTranslation_languageCode_fkey" FOREIGN KEY ("languageCode") REFERENCES "Language"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CategoryTranslation" ADD CONSTRAINT "CategoryTranslation_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CategoryTranslation" ADD CONSTRAINT "CategoryTranslation_languageCode_fkey" FOREIGN KEY ("languageCode") REFERENCES "Language"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Article" ADD CONSTRAINT "Article_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ArticleTranslation" ADD CONSTRAINT "ArticleTranslation_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "Article"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -481,10 +465,13 @@ ALTER TABLE "ArticleAttachments" ADD CONSTRAINT "ArticleAttachments_articleId_fk
 ALTER TABLE "ArticleAttachments" ADD CONSTRAINT "ArticleAttachments_attachmentsId_fkey" FOREIGN KEY ("attachmentsId") REFERENCES "Attachments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Research" ADD CONSTRAINT "Research_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "ResearchCategory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ArticleTag" ADD CONSTRAINT "ArticleTag_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "Article"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ResearchCategory" ADD CONSTRAINT "ResearchCategory_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "ResearchCategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ArticleTag" ADD CONSTRAINT "ArticleTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Research" ADD CONSTRAINT "Research_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ResearchTranslation" ADD CONSTRAINT "ResearchTranslation_researchId_fkey" FOREIGN KEY ("researchId") REFERENCES "Research"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -499,10 +486,13 @@ ALTER TABLE "ResearchAttachments" ADD CONSTRAINT "ResearchAttachments_researchId
 ALTER TABLE "ResearchAttachments" ADD CONSTRAINT "ResearchAttachments_attachmentsId_fkey" FOREIGN KEY ("attachmentsId") REFERENCES "Attachments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Book" ADD CONSTRAINT "Book_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "BookCategory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ResearchTag" ADD CONSTRAINT "ResearchTag_researchId_fkey" FOREIGN KEY ("researchId") REFERENCES "Research"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "BookCategory" ADD CONSTRAINT "BookCategory_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "BookCategory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ResearchTag" ADD CONSTRAINT "ResearchTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Book" ADD CONSTRAINT "Book_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BookTranslation" ADD CONSTRAINT "BookTranslation_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -517,19 +507,7 @@ ALTER TABLE "BookAttachments" ADD CONSTRAINT "BookAttachments_bookId_fkey" FOREI
 ALTER TABLE "BookAttachments" ADD CONSTRAINT "BookAttachments_attachmentsId_fkey" FOREIGN KEY ("attachmentsId") REFERENCES "Attachments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ArticleCategoryTranslation" ADD CONSTRAINT "ArticleCategoryTranslation_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "ArticleCategory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "BookTag" ADD CONSTRAINT "BookTag_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ArticleCategoryTranslation" ADD CONSTRAINT "ArticleCategoryTranslation_languageCode_fkey" FOREIGN KEY ("languageCode") REFERENCES "Language"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ResearchCategoryTranslation" ADD CONSTRAINT "ResearchCategoryTranslation_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "ResearchCategory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ResearchCategoryTranslation" ADD CONSTRAINT "ResearchCategoryTranslation_languageCode_fkey" FOREIGN KEY ("languageCode") REFERENCES "Language"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookCategoryTranslation" ADD CONSTRAINT "BookCategoryTranslation_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "BookCategory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookCategoryTranslation" ADD CONSTRAINT "BookCategoryTranslation_languageCode_fkey" FOREIGN KEY ("languageCode") REFERENCES "Language"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "BookTag" ADD CONSTRAINT "BookTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;

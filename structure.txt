@@ -1,11 +1,11 @@
-Project Folder Structure: D:\taqi_workspace\imamzain-api
+Project Folder Structure: C:\Users\TAQY\My-Workspace\imamzain\imamzain-api
 ├── 📄 file.js
 ├── 📄 nodemon.json
 ├── 📄 package-lock.json
 ├── 📄 package.json
 ├── 📁 prisma
 │   ├── 📁 migrations
-│   │   ├── 📁 20250701074511_fix
+│   │   ├── 📁 20250702190905_init_schema
 │   │   │   └── 📄 migration.sql
 │   │   └── 📄 migration_lock.toml
 │   ├── 📄 schema.prisma
@@ -19,7 +19,9 @@ Project Folder Structure: D:\taqi_workspace\imamzain-api
 │   │   ├── 📄 attachment.controller.ts
 │   │   ├── 📄 auth.controller.ts
 │   │   ├── 📄 book.controller.ts
+│   │   ├── 📄 category.controller.ts
 │   │   ├── 📄 research.controller.ts
+│   │   ├── 📄 tag.controller.ts
 │   │   └── 📄 user.controller.ts
 │   ├── 📁 database
 │   │   └── 📄 prisma.ts
@@ -29,31 +31,39 @@ Project Folder Structure: D:\taqi_workspace\imamzain-api
 │   ├── 📁 middlewares
 │   │   ├── 📄 auth.middleware.ts
 │   │   ├── 📄 error.middleware.ts
-│   │   ├── 📄 language.middleware.ts
-│   │   └── 📄 validation.middleware.ts
+│   │   └── 📄 language.middleware.ts
 │   ├── 📁 models
 │   ├── 📁 routes
 │   │   ├── 📄 article.routes.ts
 │   │   ├── 📄 attachment.routes.ts
 │   │   ├── 📄 auth.routes.ts
 │   │   ├── 📄 book.routes.ts
+│   │   ├── 📄 category.routes.ts
 │   │   ├── 📄 research.routes.ts
+│   │   ├── 📄 tag.routes.ts
 │   │   └── 📄 user.routes.ts
 │   ├── 📁 services
 │   │   ├── 📄 article.service.ts
 │   │   ├── 📄 attachment.service.ts
 │   │   ├── 📄 auth.service.ts
 │   │   ├── 📄 book.service.ts
-│   │   └── 📄 research.service.ts
+│   │   ├── 📄 category.service.ts
+│   │   ├── 📄 research.service.ts
+│   │   ├── 📄 tag.service.ts
+│   │   └── 📄 user.service.ts
+│   ├── 📁 tests
 │   ├── 📁 types
 │   │   ├── 📄 article.types.ts
 │   │   ├── 📄 attachment.types.ts
 │   │   ├── 📄 auth.types.ts
 │   │   ├── 📄 book.types.ts
+│   │   ├── 📄 category.types.ts
 │   │   ├── 📄 error.types.ts
 │   │   ├── 📄 language.types.ts
 │   │   ├── 📄 middleware.types.ts
-│   │   └── 📄 research.types.ts
+│   │   ├── 📄 research.types.ts
+│   │   ├── 📄 tag.types.ts
+│   │   └── 📄 user.types.ts
 │   ├── 📁 utils
 │   │   └── 📄 slug.utils.ts
 │   └── 📁 validations
@@ -61,7 +71,10 @@ Project Folder Structure: D:\taqi_workspace\imamzain-api
 │       ├── 📄 attachment.validations.ts
 │       ├── 📄 auth.validations.ts
 │       ├── 📄 book.validations.ts
-│       └── 📄 research.validations.ts
+│       ├── 📄 category.validations.ts
+│       ├── 📄 research.validations.ts
+│       ├── 📄 tag.validations.ts
+│       └── 📄 user.validations.ts
 ├── 📄 structure.txt
 ├── 📄 tsconfig.json
 └── 📄 tsconfig.tsbuildinfo

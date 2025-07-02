@@ -1,49 +1,73 @@
-// src/routes/attachment.routes.ts
-import { Router } from "express";
-import {
-  uploadFileHandler,
-  getAttachmentHandler,
-  getAttachmentsHandler,
-  updateAttachmentHandler,
-  deleteAttachmentHandler,
-  serveFileHandler,
+import { Router } from 'express';
+import { 
+  createHandler,
+  getByIdHandler,
+  getAllHandler,
+  updateHandler,
+  deleteHandler,
+  downloadHandler,
   upload
-} from "../controllers/attachment.controller";
-import { authenticateJWT, authorize } from "../middlewares/auth.middleware";
-import { validateUpdateAttachment } from "../validations/attachment.validations";
+} from '../controllers/attachment.controller';
+import {
+  createValidation,
+  updateValidation,
+  deleteValidation
+} from '../validations/attachment.validations';
+import { authenticateJWT } from '../middlewares/auth.middleware';
+import { authorize } from '../middlewares/auth.middleware';
 
-const attachmentRouter = Router();
+const router = Router();
 
-// Serve uploaded files (public access)
-attachmentRouter.get("/uploads/:filename", serveFileHandler);
-
-// Get all attachments (public read access)
-attachmentRouter.get("/", getAttachmentsHandler);
-
-// Get attachment by ID (public read access)
-attachmentRouter.get("/:id", getAttachmentHandler);
-
-// Upload file (requires authentication + permission)
-attachmentRouter.post("/upload", 
+// Create attachment (file upload)
+router.post(
+  '/',
   authenticateJWT,
-  authorize("CREATE_ATTACHMENTS"),
+  authorize('CREATE_ATTACHMENTS'),
   upload.single('file'),
-  uploadFileHandler
+  createValidation,
+  createHandler
 );
 
-// Update attachment (requires authentication + permission)
-attachmentRouter.put("/:id", 
+// Get all attachments with pagination and filters
+router.get(
+  '/',
   authenticateJWT,
-  authorize("UPDATE_ATTACHMENTS"),
-  validateUpdateAttachment,
-  updateAttachmentHandler
+  authorize('READ_ATTACHMENTS'),
+  getAllHandler
 );
 
-// Delete attachment (requires authentication + permission)
-attachmentRouter.delete("/:id", 
+// Get attachment by ID
+router.get(
+  '/:id',
   authenticateJWT,
-  authorize("DELETE_ATTACHMENTS"),
-  deleteAttachmentHandler
+  authorize('READ_ATTACHMENTS'),
+  getByIdHandler
 );
 
-export default attachmentRouter;
+// Download attachment file
+router.get(
+  '/:id/download',
+  authenticateJWT,
+  authorize('READ_ATTACHMENTS'),
+  downloadHandler
+);
+
+// Update attachment metadata
+router.put(
+  '/:id',
+  authenticateJWT,
+  authorize('UPDATE_ATTACHMENTS'),
+  updateValidation,
+  updateHandler
+);
+
+// Delete attachment
+router.delete(
+  '/:id',
+  authenticateJWT,
+  authorize('DELETE_ATTACHMENTS'),
+  deleteValidation,
+  deleteHandler
+);
+
+export default router;

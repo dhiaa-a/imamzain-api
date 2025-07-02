@@ -15,60 +15,86 @@ import {
   deleteBookCategoryHandler
 } from "../controllers/book.controller";
 import { authorize, authenticateJWT } from "../middlewares/auth.middleware";
-import { validateCreateBook, validateUpdateBook, validateCreateBookCategory, validateUpdateBookCategory } from "../validations/book.validations";
+import { 
+  validateCreateBook, 
+  validateUpdateBook, 
+  validateCreateBookCategory, 
+  validateUpdateBookCategory 
+} from "../validations/book.validations";
 import { validateLanguage } from "../middlewares/language.middleware";
 
 const bookRouter = Router();
 
-// Book Category routes (without language prefix)
-// GET /api/v1/book-categories - Get all book categories (public)
-bookRouter.get("/book-categories", getBookCategoriesHandler);
+// =============================================================================
+// BOOK CATEGORY ROUTES (Admin/Management - No Language Required)
+// =============================================================================
 
-// POST /api/v1/book-categories - Create book category (requires permission)
-bookRouter.post("/book-categories", 
+// GET /api/v1/books/categories - Get all book categories (public)
+bookRouter.get("/categories", getBookCategoriesHandler);
+
+// POST /api/v1/books/categories - Create book category (admin only)
+bookRouter.post("/categories", 
   authenticateJWT,
   authorize("CREATE_BOOK_CATEGORY"),
   validateCreateBookCategory,
   createBookCategoryHandler
 );
 
-// PUT /api/v1/book-categories/:id - Update book category (requires permission)
-bookRouter.put("/book-categories/:id", 
+// GET /api/v1/books/categories/:id - Get book category by ID (public)
+bookRouter.get("/categories/:id", getBookCategoryHandler);
+
+// PUT /api/v1/books/categories/:id - Update book category (admin only)
+bookRouter.put("/categories/:id", 
   authenticateJWT,
   authorize("UPDATE_BOOK_CATEGORY"),
   validateUpdateBookCategory,
   updateBookCategoryHandler
 );
 
-// DELETE /api/v1/book-categories/:id - Delete book category (requires permission)
-bookRouter.delete("/book-categories/:id", 
+// DELETE /api/v1/books/categories/:id - Delete book category (admin only)
+bookRouter.delete("/categories/:id", 
   authenticateJWT,
   authorize("DELETE_BOOK_CATEGORY"),
   deleteBookCategoryHandler
 );
 
-// Language-specific book category routes
-// GET /api/v1/:lang/book-categories - Get all book categories with language (public)
-bookRouter.get("/:lang/book-categories", validateLanguage, getBookCategoriesHandler);
+// GET /api/v1/books/categories/slug/:slug - Get book category by slug (public)
+bookRouter.get("/categories/slug/:slug", getBookCategoryBySlugHandler);
 
-// GET /api/v1/:lang/book-categories/:id - Get book category by ID with language (public)
-bookRouter.get("/:lang/book-categories/:id", validateLanguage, getBookCategoryHandler);
+// =============================================================================
+// LANGUAGE-SPECIFIC BOOK CATEGORY ROUTES (Frontend/Public API)
+// =============================================================================
 
-// GET /api/v1/:lang/book-categories/slug/:slug - Get book category by slug with language (public)
-bookRouter.get("/:lang/book-categories/slug/:slug", validateLanguage, getBookCategoryBySlugHandler);
+// GET /api/v1/books/:lang/categories - Get all book categories with language (public)
+bookRouter.get("/:lang/categories", 
+  validateLanguage, 
+  getBookCategoriesHandler
+);
 
-// Language-specific book routes
-// GET /api/v1/:lang/books - Get all books with filtering (public)
-bookRouter.get("/:lang/books", validateLanguage, getBooksHandler);
+// GET /api/v1/books/:lang/categories/:id - Get book category by ID with language (public)
+bookRouter.get("/:lang/categories/:id", 
+  validateLanguage, 
+  getBookCategoryHandler
+);
 
-// GET /api/v1/:lang/books/:id - Get book by ID (public)
-bookRouter.get("/:lang/books/:id", validateLanguage, getBookHandler);
+// GET /api/v1/books/:lang/categories/slug/:slug - Get book category by slug with language (public)
+bookRouter.get("/:lang/categories/slug/:slug", 
+  validateLanguage, 
+  getBookCategoryBySlugHandler
+);
 
-// GET /api/v1/:lang/books/slug/:slug - Get book by slug (public)
-bookRouter.get("/:lang/books/slug/:slug", validateLanguage, getBookBySlugHandler);
+// =============================================================================
+// LANGUAGE-SPECIFIC BOOK ROUTES (Frontend/Public API)
+// =============================================================================
 
-// POST /api/v1/:lang/books - Create new book (requires permission)
-bookRouter.post("/:lang/books", 
+// GET /api/v1/books/:lang - Get all books with filtering and language (public)
+bookRouter.get("/:lang", 
+  validateLanguage, 
+  getBooksHandler
+);
+
+// POST /api/v1/books/:lang - Create new book (requires permission)
+bookRouter.post("/:lang", 
   validateLanguage, 
   authenticateJWT, 
   authorize("CREATE_BOOK"), 
@@ -76,8 +102,20 @@ bookRouter.post("/:lang/books",
   createBookHandler
 );
 
-// PUT /api/v1/:lang/books/:id - Update book (requires permission)
-bookRouter.put("/:lang/books/:id", 
+// GET /api/v1/books/:lang/slug/:slug - Get book by slug with language (public)
+bookRouter.get("/:lang/slug/:slug", 
+  validateLanguage, 
+  getBookBySlugHandler
+);
+
+// GET /api/v1/books/:lang/:id - Get book by ID with language (public)
+bookRouter.get("/:lang/:id", 
+  validateLanguage, 
+  getBookHandler
+);
+
+// PUT /api/v1/books/:lang/:id - Update book (requires permission)
+bookRouter.put("/:lang/:id", 
   validateLanguage, 
   authenticateJWT, 
   authorize("UPDATE_BOOK"), 
@@ -85,8 +123,8 @@ bookRouter.put("/:lang/books/:id",
   updateBookHandler
 );
 
-// DELETE /api/v1/:lang/books/:id - Delete book (requires permission)
-bookRouter.delete("/:lang/books/:id", 
+// DELETE /api/v1/books/:lang/:id - Delete book (requires permission)
+bookRouter.delete("/:lang/:id", 
   validateLanguage, 
   authenticateJWT, 
   authorize("DELETE_BOOK"), 

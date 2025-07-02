@@ -1,139 +1,103 @@
-// src/controllers/attachment.controller.ts
-import { Request, Response, NextFunction } from "express";
-import {
+import { Request, Response } from 'express';
+import { 
   createAttachment,
   getAttachmentById,
-  getAttachments,
+  getAllAttachments,
   updateAttachment,
-  deleteAttachment
-} from "../services/attachment.service";
-import { 
-  CreateAttachmentRequest, 
-  UpdateAttachmentRequest,
-  ALLOWED_MIME_TYPES,
-  MAX_FILE_SIZE
-} from "../types/attachment.types";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { v4 as uuidv4 } from "uuid";
+  deleteAttachment,
+  createUploadDirectories,
+  getFileTypeDirectory
+} from '../services/attachment.service';
+import { AttachmentFilters } from '../types/attachment.types';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { generateSlug } from '../utils/slug.utils';
 
-// Extend Request interface to include file
-interface RequestWithFile extends Request {
-  file?: Express.Multer.File;
-}
+// Initialize upload directories
+createUploadDirectories();
 
-// Multer configuration for file uploads
+// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    const fileTypeDir = getFileTypeDirectory(file.mimetype);
+    const uploadPath = path.join(process.cwd(), 'uploads', fileTypeDir);
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const extension = path.extname(file.originalname);
+    const baseName = path.basename(file.originalname, extension);
+    const sluggedName = generateSlug(baseName);
+    
+    const fileName = `${timestamp}-${randomString}-${sluggedName}${extension}`;
+    cb(null, fileName);
   }
 });
-
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`File type ${file.mimetype} is not allowed`));
-  }
-};
 
 export const upload = multer({
   storage,
-  fileFilter,
   limits: {
-    fileSize: MAX_FILE_SIZE
+    fileSize: 50 * 1024 * 1024 // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Add any file type restrictions here if needed
+    cb(null, true);
   }
 });
 
-export async function uploadFileHandler(
-  req: RequestWithFile,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export const createHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.file) {
+    const file = req.file;
+    
+    if (!file) {
       res.status(400).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "No file uploaded"
-        }
+        message: 'No file uploaded'
       });
       return;
     }
 
-    const { collection, altText, metadata } = req.body;
-
-    const attachmentData: CreateAttachmentRequest = {
-      originalName: req.file.originalname,
-      fileName: req.file.filename,
-      path: req.file.filename, // Store relative path
-      mimeType: req.file.mimetype,
-      size: req.file.size,
-      disk: 'local',
-      collection: collection || null,
-      altText: altText || null,
-      metadata: metadata ? JSON.parse(metadata) : {}
+    const attachmentData = {
+      originalName: file.originalname,
+      fileName: file.filename,
+      path: file.path,
+      mimeType: file.mimetype,
+      size: file.size,
+      altText: req.body.altText || null,
+      metadata: req.body.metadata ? JSON.parse(req.body.metadata) : null
     };
 
     const attachment = await createAttachment(attachmentData);
 
     res.status(201).json({
       success: true,
-      data: attachment,
-      message: "File uploaded successfully"
+      message: 'Attachment created successfully',
+      data: attachment
     });
-  } catch (error: any) {
+  } catch (error) {
     // Clean up uploaded file if database operation fails
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {
-        console.warn("Failed to clean up uploaded file:", e);
-      }
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
     }
-    next(error);
+    
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
   }
-}
+};
 
-export async function getAttachmentHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export const getByIdHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const attachmentId = parseInt(id);
-
-    if (isNaN(attachmentId)) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid attachment ID"
-        }
-      });
-      return;
-    }
-
-    const attachment = await getAttachmentById(attachmentId);
+    const id = parseInt(req.params.id);
+    const attachment = await getAttachmentById(id);
 
     if (!attachment) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Attachment not found"
-        }
+        message: 'Attachment not found'
       });
       return;
     }
@@ -143,163 +107,136 @@ export async function getAttachmentHandler(
       data: attachment
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
   }
-}
+};
 
-export async function getAttachmentsHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export const getAllHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      page = "1",
-      limit = "20",
-      mimeType,
-      collection,
-      search,
-      disk
-    } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const filters: AttachmentFilters = {};
+    
+    if (req.query.mimeType) {
+      filters.mimeType = req.query.mimeType as string;
+    }
+    if (req.query.originalName) {
+      filters.originalName = req.query.originalName as string;
+    }
+    if (req.query.minSize) {
+      filters.minSize = parseInt(req.query.minSize as string);
+    }
+    if (req.query.maxSize) {
+      filters.maxSize = parseInt(req.query.maxSize as string);
+    }
+    if (req.query.createdAfter) {
+      filters.createdAfter = new Date(req.query.createdAfter as string);
+    }
+    if (req.query.createdBefore) {
+      filters.createdBefore = new Date(req.query.createdBefore as string);
+    }
 
-    const query = {
-      page: parseInt(page as string) || 1,
-      limit: parseInt(limit as string) || 20,
-      mimeType: mimeType as string,
-      collection: collection as string,
-      search: search as string,
-      disk: disk as string
-    };
-
-    const result = await getAttachments(query);
+    const result = await getAllAttachments(page, limit, filters);
 
     res.json({
       success: true,
-      data: result.attachments,
-      pagination: result.pagination
+      data: result
     });
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
   }
-}
+};
 
-export async function updateAttachmentHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export const updateHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const updateData: UpdateAttachmentRequest = req.body;
+    const id = parseInt(req.params.id);
+    const updateData = req.body;
 
-    const attachmentId = parseInt(id);
-    if (isNaN(attachmentId)) {
-      res.status(400).json({
+    const attachment = await updateAttachment(id, updateData);
+
+    if (!attachment) {
+      res.status(404).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid attachment ID"
-        }
+        message: 'Attachment not found'
       });
       return;
     }
 
-    const attachment = await updateAttachment(attachmentId, updateData);
-
     res.json({
       success: true,
+      message: 'Attachment updated successfully',
       data: attachment
     });
-  } catch (error: any) {
-    if (error.message === "ATTACHMENT_NOT_FOUND") {
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+};
+
+export const deleteHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const deleted = await deleteAttachment(id);
+
+    if (!deleted) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Attachment not found"
-        }
+        message: 'Attachment not found'
       });
       return;
     }
-    next(error);
-  }
-}
-
-export async function deleteAttachmentHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { id } = req.params;
-    const attachmentId = parseInt(id);
-
-    if (isNaN(attachmentId)) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid attachment ID"
-        }
-      });
-      return;
-    }
-
-    await deleteAttachment(attachmentId);
 
     res.json({
       success: true,
-      message: "Attachment deleted successfully"
+      message: 'Attachment deleted successfully'
     });
-  } catch (error: any) {
-    if (error.message === "ATTACHMENT_NOT_FOUND") {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Attachment not found"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "ATTACHMENT_IN_USE") {
-      res.status(409).json({
-        success: false,
-        error: {
-          code: "CONFLICT",
-          message: "Cannot delete attachment as it is being used by articles, research, or books"
-        }
-      });
-      return;
-    }
-    
-    next(error);
-  }
-}
-
-export async function serveFileHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { filename } = req.params;
-    const filePath = path.join(process.cwd(), 'uploads', filename);
-
-    if (!fs.existsSync(filePath)) {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "File not found"
-        }
-      });
-      return;
-    }
-
-    res.sendFile(filePath);
   } catch (error) {
-    next(error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
   }
-}
+};
+
+export const downloadHandler = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id);
+    const attachment = await getAttachmentById(id);
+
+    if (!attachment) {
+      res.status(404).json({
+        success: false,
+        message: 'Attachment not found'
+      });
+      return;
+    }
+
+    if (!fs.existsSync(attachment.path)) {
+      res.status(404).json({
+        success: false,
+        message: 'Physical file not found'
+      });
+      return;
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalName}"`);
+    res.setHeader('Content-Type', attachment.mimeType);
+    
+    const fileStream = fs.createReadStream(attachment.path);
+    fileStream.pipe(res);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : 'Internal server error'
+    });
+  }
+};

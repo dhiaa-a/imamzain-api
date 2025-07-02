@@ -1,19 +1,64 @@
-import { Router } from "express"; 
+import { Router } from "express";
 import {
-  createUser,
-  getAllUsers,
-  getUserById,
-  updateUserActive,
-  updateUserRoles,
+  createUserHandler,
+  getAllUsersHandler,
+  getUserByIdHandler,
+  updateUserActiveHandler,
+  updateUserRolesHandler,
 } from "../controllers/user.controller";
-import { authorize } from "../middlewares/auth.middleware";
+import { authenticateJWT, authorize } from "../middlewares/auth.middleware";
+import { validateLanguage } from "../middlewares/language.middleware";
+import {
+  validateCreateUser,
+  validateGetUserById,
+  validateUpdateUserActive,
+  validateUpdateUserRoles,
+} from "../validations/user.validations";
 
 const userRouter = Router();
 
-// these are now correctly typed RequestHandlers
+// GET /users - Get all users
+userRouter.get(
+  "/", 
+  authenticateJWT,
+  authorize("READ_USER"),
+  getAllUsersHandler
+);
 
- 
-userRouter.get("/", authorize("READ_USER"), getAllUsers);
-userRouter.get("/:id",authorize("READ_USER"), getUserById);
+// GET /users/:id - Get user by ID
+userRouter.get(
+  "/:id", 
+  authenticateJWT,
+  authorize("READ_USER"),
+  validateGetUserById,
+  getUserByIdHandler
+);
+
+// POST /users - Create new user
+userRouter.post(
+  "/", 
+  authenticateJWT,
+  authorize("CREATE_USER"),
+  validateCreateUser,
+  createUserHandler
+);
+
+// PATCH /users/:id/status - Update user active status
+userRouter.patch(
+  "/:id/status", 
+  authenticateJWT,
+  authorize("UPDATE_USER"),
+  validateUpdateUserActive,
+  updateUserActiveHandler
+);
+
+// PUT /users/:id/roles - Update user roles
+userRouter.put(
+  "/:id/roles", 
+  authenticateJWT,
+  authorize("UPDATE_USER"),
+  validateUpdateUserRoles,
+  updateUserRolesHandler
+);
 
 export default userRouter;

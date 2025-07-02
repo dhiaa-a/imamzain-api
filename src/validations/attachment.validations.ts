@@ -1,139 +1,107 @@
-// src/validations/attachment.validations.ts
-import { z } from "zod";
-import { Request, Response, NextFunction } from "express";
-import { ALLOWED_MIME_TYPES } from "../types/attachment.types";
+import { z } from 'zod';
+import { Request, Response, NextFunction } from 'express';
 
-// Zod schemas
 const createAttachmentSchema = z.object({
-  originalName: z.string().min(1, "Original name is required"),
-  fileName: z.string().min(1, "File name is required"),
-  path: z.string().min(1, "Path is required"),
-  mimeType: z.string().refine(
-    (value) => ALLOWED_MIME_TYPES.includes(value),
-    {
-      message: `MIME type must be one of: ${ALLOWED_MIME_TYPES.join(", ")}`
-    }
-  ),
-  size: z.number().positive("Size must be a positive number"),
-  disk: z.string().optional(),
-  collection: z.string().optional(),
-  altText: z.string().optional(),
-  metadata: z.record(z.any()).optional()
+  body: z.object({
+    originalName: z.string().min(1, 'Original name is required').max(255, 'Original name too long'),
+    fileName: z.string().min(1, 'File name is required').max(255, 'File name too long'),
+    path: z.string().min(1, 'Path is required').max(500, 'Path too long'),
+    mimeType: z.string().min(1, 'MIME type is required').max(100, 'MIME type too long'),
+    size: z.number().int().positive('Size must be a positive integer'),
+    altText: z.string().max(500, 'Alt text too long').nullable().optional(),
+    metadata: z.any().optional()
+  })
 });
 
 const updateAttachmentSchema = z.object({
-  originalName: z.string().min(1).optional(),
-  fileName: z.string().min(1).optional(),
-  path: z.string().min(1).optional(),
-  mimeType: z.string().refine(
-    (value) => ALLOWED_MIME_TYPES.includes(value),
-    {
-      message: `MIME type must be one of: ${ALLOWED_MIME_TYPES.join(", ")}`
-    }
-  ).optional(),
-  size: z.number().positive().optional(),
-  disk: z.string().optional(),
-  collection: z.string().optional(),
-  altText: z.string().optional(),
-  metadata: z.record(z.any()).optional()
-});
-
-const articleAttachmentSchema = z.object({
-  attachmentId: z.number().positive("Attachment ID must be a positive number"),
-  type: z.enum(["featured", "gallery", "attachment", "other"], {
-    errorMap: () => ({ message: "Type must be one of: featured, gallery, attachment, other" })
+  params: z.object({
+    id: z.string().transform((val) => parseInt(val, 10)).refine((val) => !isNaN(val) && val > 0, {
+      message: 'Invalid attachment ID'
+    })
   }),
-  order: z.number().int("Order must be an integer"),
-  caption: z.string().optional()
+  body: z.object({
+    originalName: z.string().min(1, 'Original name is required').max(255, 'Original name too long').optional(),
+    fileName: z.string().min(1, 'File name is required').max(255, 'File name too long').optional(),
+    path: z.string().min(1, 'Path is required').max(500, 'Path too long').optional(),
+    mimeType: z.string().min(1, 'MIME type is required').max(100, 'MIME type too long').optional(),
+    size: z.number().int().positive('Size must be a positive integer').optional(),
+    altText: z.string().max(500, 'Alt text too long').nullable().optional(),
+    metadata: z.any().optional()
+  })
 });
 
-const articleAttachmentsSchema = z.object({
-  attachments: z.array(articleAttachmentSchema).min(1, "At least one attachment is required")
-    .refine(
-      (attachments) => {
-        const ids = attachments.map(a => a.attachmentId);
-        return new Set(ids).size === ids.length;
-      },
-      { message: "Duplicate attachment IDs are not allowed" }
-    )
-    .refine(
-      (attachments) => {
-        const orders = attachments.map(a => a.order);
-        return new Set(orders).size === orders.length;
-      },
-      { message: "Duplicate order values are not allowed" }
-    )
+const getAttachmentSchema = z.object({
+  params: z.object({
+    id: z.string().transform((val) => parseInt(val, 10)).refine((val) => !isNaN(val) && val > 0, {
+      message: 'Invalid attachment ID'
+    })
+  })
 });
 
-// Validation middleware functions
-export function validateCreateAttachment(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  try {
-    createAttachmentSchema.parse(req.body);
-    next();
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Validation failed",
-          details: error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
-        }
-      });
-      return;
-    }
-    next(error);
-  }
-}
+const deleteAttachmentSchema = z.object({
+  params: z.object({
+    id: z.string().transform((val) => parseInt(val, 10)).refine((val) => !isNaN(val) && val > 0, {
+      message: 'Invalid attachment ID'
+    })
+  })
+});
 
-export function validateUpdateAttachment(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export const createValidation = (req: Request, res: Response, next: NextFunction): void => {
   try {
-    updateAttachmentSchema.parse(req.body);
+    createAttachmentSchema.parse(req);
     next();
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({
         success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Validation failed",
-          details: error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
-        }
+        message: 'Validation failed',
+        errors: error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
       });
       return;
     }
     next(error);
   }
-}
+};
 
-export function validateArticleAttachments(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export const updateValidation = (req: Request, res: Response, next: NextFunction): void => {
   try {
-    articleAttachmentsSchema.parse(req.body);
+    updateAttachmentSchema.parse(req);
     next();
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({
         success: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Validation failed",
-          details: error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
-        }
+        message: 'Validation failed',
+        errors: error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
       });
       return;
     }
     next(error);
   }
-}
+};
+
+export const deleteValidation = (req: Request, res: Response, next: NextFunction): void => {
+  try {
+    deleteAttachmentSchema.parse(req);
+    next();
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+    next(error);
+  }
+};

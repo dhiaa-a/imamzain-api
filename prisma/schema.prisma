@@ -14,37 +14,37 @@ generator client {
 }
 
 //
+// ── ENUMS ─────────────────────────────────────────────────────────────────────
+//
+
+enum ModelType {
+  ARTICLE
+  RESEARCH  
+  BOOK
+}
+
+//
 // ── AUTH & ACL MODELS ─────────────────────────────────────────────────────────
 //
 
 model User {
   id            Int            @id @default(autoincrement())
+  fullName      String
   email         String         @unique
   username      String         @unique
   passwordHash  String
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-
-  profile       UserProfile?
+ 
   activityLogs  ActivityLog[]
   roles         UserRole[]
   groups        GroupMember[]
   refreshTokens RefreshToken[]
 }
 
-model UserProfile {
-  id        Int     @id @default(autoincrement())
-  user      User    @relation(fields: [userId], references: [id])
-  userId    Int     @unique
-  fullName  String?
-  avatarUrl String?
-  bio       String?
-}
-
 model ActivityLog {
   id         Int      @id @default(autoincrement())
-  user       User     @relation(fields: [userId], references: [id])
   userId     Int
   action     String
   tableName  String
@@ -53,6 +53,8 @@ model ActivityLog {
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
 }
 
 model Role {
@@ -140,12 +142,11 @@ model Language {
   nativeName   String
   isActive     Boolean @default(true)
 
-  articleTranslations          ArticleTranslation[]
-  researchTranslations         ResearchTranslation[]
-  bookTranslations             BookTranslation[]
-  articleCategoryTranslations  ArticleCategoryTranslation[]  @relation("ArticleCategoryLanguage")
-  researchCategoryTranslations ResearchCategoryTranslation[] @relation("ResearchCategoryLanguage")
-  bookCategoryTranslations     BookCategoryTranslation[]     @relation("BookCategoryLanguage")
+  articleTranslations     ArticleTranslation[]
+  researchTranslations    ResearchTranslation[]
+  bookTranslations        BookTranslation[]
+  categoryTranslations    CategoryTranslation[]
+  tagTranslations         TagTranslation[]
 }
 
 //
@@ -159,8 +160,6 @@ model Attachments {
   path         String
   mimeType     String
   size         Int
-  disk         String   @default("local")
-  collection   String?
   altText      String?
   metadata     Json?
   createdAt    DateTime @default(now())
@@ -169,6 +168,70 @@ model Attachments {
   articleAttachments  ArticleAttachments[]
   researchAttachments ResearchAttachments[]
   bookAttachments     BookAttachments[]
+}
+
+//
+// ── TAGS SYSTEM ───────────────────────────────────────────────────────────────
+//
+
+model Tag {
+  id           Int              @id @default(autoincrement())
+  slug         String           @unique
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  translations TagTranslation[]
+  articles     ArticleTag[]
+  researches   ResearchTag[]
+  books        BookTag[]
+
+  @@index([slug])
+}
+
+model TagTranslation {
+  id           Int      @id @default(autoincrement())
+  tagId        Int
+  languageCode String
+  isDefault    Boolean  @default(false)
+  name         String
+
+  tag          Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  language     Language @relation(fields: [languageCode], references: [code])
+
+  @@unique([tagId, languageCode])
+}
+
+//
+// ── UNIFIED CATEGORY SYSTEM ───────────────────────────────────────────────────
+//
+
+model Category {
+  id           Int                 @id @default(autoincrement())
+  slug         String              @unique
+  model        ModelType
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  articles     Article[]
+  researches   Research[]
+  books        Book[]
+  translations CategoryTranslation[]
+
+  @@index([model])
+}
+
+model CategoryTranslation {
+  id           Int     @id @default(autoincrement())
+  categoryId   Int
+  languageCode String
+  isDefault    Boolean @default(false)
+  name         String
+
+  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  language     Language @relation(fields: [languageCode], references: [code])
+
+  @@unique([categoryId, languageCode])
 }
 
 //
@@ -185,24 +248,10 @@ model Article {
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 
-  category     ArticleCategory       @relation(fields: [categoryId], references: [id])
+  category     Category              @relation(fields: [categoryId], references: [id])
   translations ArticleTranslation[]
   attachments  ArticleAttachments[]
-}
-
-model ArticleCategory {
-  id           Int                    @id @default(autoincrement())
-  slug         String                 @unique
-  parentId     Int?
-  sortOrder    Int                    @default(0)
-  isActive     Boolean                @default(true)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-
-  parent       ArticleCategory?              @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children     ArticleCategory[]             @relation("CategoryHierarchy")
-  articles     Article[]
-  translations ArticleCategoryTranslation[]
+  tags         ArticleTag[]
 }
 
 model ArticleTranslation {
@@ -213,8 +262,6 @@ model ArticleTranslation {
   title        String
   summary      String?
   body         String
-  metaTitle    String?
-  metaDescription String?
 
   article      Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   language     Language @relation(fields: [languageCode], references: [code])
@@ -226,14 +273,23 @@ model ArticleAttachments {
   id            Int         @id @default(autoincrement())
   articleId     Int
   attachmentsId Int
-  type          String      // "featured", "gallery", "attachment", "other"
   order         Int         @default(0)
-  caption       String?
 
   article       Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
   attachment    Attachments @relation(fields: [attachmentsId], references: [id])
 
   @@unique([articleId, attachmentsId])
+}
+
+model ArticleTag {
+  id        Int     @id @default(autoincrement())
+  articleId Int
+  tagId     Int
+
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, tagId])
 }
 
 //
@@ -251,24 +307,10 @@ model Research {
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
 
-  category     ResearchCategory       @relation(fields: [categoryId], references: [id])
+  category     Category               @relation(fields: [categoryId], references: [id])
   translations ResearchTranslation[]
   attachments  ResearchAttachments[]
-}
-
-model ResearchCategory {
-  id           Int                    @id @default(autoincrement())
-  slug         String                 @unique
-  parentId     Int?
-  sortOrder    Int                    @default(0)
-  isActive     Boolean                @default(true)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-
-  parent       ResearchCategory?              @relation("ResearchCategoryHierarchy", fields: [parentId], references: [id])
-  children     ResearchCategory[]             @relation("ResearchCategoryHierarchy")
-  researches   Research[]
-  translations ResearchCategoryTranslation[]
+  tags         ResearchTag[]
 }
 
 model ResearchTranslation {
@@ -278,7 +320,6 @@ model ResearchTranslation {
   isDefault    Boolean  @default(false)
   title        String
   abstract     String?
-  keywords     String?
   authors      String?
   metaTitle    String?
   metaDescription String?
@@ -293,14 +334,23 @@ model ResearchAttachments {
   id            Int         @id @default(autoincrement())
   researchId    Int
   attachmentsId Int
-  type          String      // "pdf", "cover", "attachment", "other"
-  order         Int         @default(0)
-  caption       String?
+  order         Int         @default(0) 
 
   research      Research    @relation(fields: [researchId], references: [id], onDelete: Cascade)
   attachment    Attachments @relation(fields: [attachmentsId], references: [id])
 
   @@unique([researchId, attachmentsId])
+}
+
+model ResearchTag {
+  id         Int      @id @default(autoincrement())
+  researchId Int
+  tagId      Int
+
+  research   Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([researchId, tagId])
 }
 
 //
@@ -322,24 +372,10 @@ model Book {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
-  category     BookCategory       @relation(fields: [categoryId], references: [id])
+  category     Category           @relation(fields: [categoryId], references: [id])
   translations BookTranslation[]
   attachments  BookAttachments[]
-}
-
-model BookCategory {
-  id           Int                    @id @default(autoincrement())
-  slug         String                 @unique
-  parentId     Int?
-  sortOrder    Int                    @default(0)
-  isActive     Boolean                @default(true)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-
-  parent       BookCategory?           @relation("BookCategoryHierarchy", fields: [parentId], references: [id])
-  children     BookCategory[]          @relation("BookCategoryHierarchy")
-  books        Book[]
-  translations BookCategoryTranslation[]
+  tags         BookTag[]
 }
 
 model BookTranslation {
@@ -365,9 +401,7 @@ model BookAttachments {
   id            Int         @id @default(autoincrement())
   bookId        Int
   attachmentsId Int
-  type          String      // "cover", "pdf", "attachment", "other"
   order         Int         @default(0)
-  caption       String?
 
   book          Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
   attachment    Attachments @relation(fields: [attachmentsId], references: [id])
@@ -375,46 +409,13 @@ model BookAttachments {
   @@unique([bookId, attachmentsId])
 }
 
-//
-// ── CATEGORY TRANSLATIONS ─────────────────────────────────────────────────────
-//
+model BookTag {
+  id     Int  @id @default(autoincrement())
+  bookId Int
+  tagId  Int
 
-model ArticleCategoryTranslation {
-  id           Int     @id @default(autoincrement())
-  categoryId   Int
-  languageCode String
-  isDefault    Boolean @default(false)
-  name         String
+  book   Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-
-  category     ArticleCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  language     Language        @relation("ArticleCategoryLanguage", fields: [languageCode], references: [code])
-
-  @@unique([categoryId, languageCode])
-}
-
-model ResearchCategoryTranslation {
-  id           Int     @id @default(autoincrement())
-  categoryId   Int
-  languageCode String
-  isDefault    Boolean @default(false)
-  name         String 
-
-  category     ResearchCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  language     Language         @relation("ResearchCategoryLanguage", fields: [languageCode], references: [code])
-
-  @@unique([categoryId, languageCode])
-}
-
-model BookCategoryTranslation {
-  id           Int     @id @default(autoincrement())
-  categoryId   Int
-  languageCode String
-  isDefault    Boolean @default(false)
-  name         String
-
-  category     BookCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  language     Language     @relation("BookCategoryLanguage", fields: [languageCode], references: [code])
-
-  @@unique([categoryId, languageCode])
+  @@unique([bookId, tagId])
 }
