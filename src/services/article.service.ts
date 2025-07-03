@@ -1,589 +1,471 @@
-// src/services/article.service.ts
-import { prisma } from "../database/prisma"
-import {
-	CreateArticleRequest,
-	UpdateArticleRequest,
-	GetArticlesQuery,
-	ArticleResponse,
-} from "../types/article.types"
-import {
-	generateSlug,
-	generateUniqueSlug,
-	isValidSlug,
-} from "../utils/slug.utils"
+import { prisma } from '../database/prisma';
+import { generateSlug, generateUniqueSlug } from '../utils/slug.utils';
+import { CreateArticleRequest, UpdateArticleRequest, ArticleResponse, ArticleListResponse, ArticleFilters } from '../types/article.types';
 
-export async function createArticle(
-	data: CreateArticleRequest,
-): Promise<ArticleResponse> {
-	// Check if category exists
-	const category = await prisma.articleCategory.findUnique({
-		where: { id: data.categoryId },
-	})
+export const createArticle = async (data: CreateArticleRequest): Promise<ArticleResponse> => {
+  // Validate that category exists
+  const categoryExists = await prisma.category.findUnique({
+    where: { id: data.categoryId }
+  });
+  
+  if (!categoryExists) {
+    throw new Error(`Category with ID ${data.categoryId} does not exist`);
+  }
 
-	if (!category) {
-		throw new Error("CATEGORY_NOT_FOUND")
-	}
+  // Validate that all tags exist if provided
+  if (data.tagIds && data.tagIds.length > 0) {
+    const existingTags = await prisma.tag.findMany({
+      where: { id: { in: data.tagIds } }
+    });
+    
+    if (existingTags.length !== data.tagIds.length) {
+      const existingTagIds = existingTags.map(tag => tag.id);
+      const missingTagIds = data.tagIds.filter(id => !existingTagIds.includes(id));
+      throw new Error(`Tags with IDs ${missingTagIds.join(', ')} do not exist`);
+    }
+  }
 
-	// Check if languages exist
-	const languageCodes = data.translations.map((t) => t.languageCode)
-	const languages = await prisma.language.findMany({
-		where: { code: { in: languageCodes } },
-	})
+  // Validate that all attachments exist if provided
+  if (data.attachmentIds && data.attachmentIds.length > 0) {
+    const existingAttachments = await prisma.attachments.findMany({
+      where: { id: { in: data.attachmentIds } }
+    });
+    
+    if (existingAttachments.length !== data.attachmentIds.length) {
+      const existingAttachmentIds = existingAttachments.map(attachment => attachment.id);
+      const missingAttachmentIds = data.attachmentIds.filter(id => !existingAttachmentIds.includes(id));
+      throw new Error(`Attachments with IDs ${missingAttachmentIds.join(', ')} do not exist`);
+    }
+  }
 
-	if (languages.length !== languageCodes.length) {
-		throw new Error("INVALID_LANGUAGE_CODES")
-	}
+  // Generate unique slug
+  const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
+  const baseSlug = generateSlug(defaultTranslation.title);
+  
+  // Get all existing article slugs to ensure uniqueness
+  const existingArticles = await prisma.article.findMany({
+    select: { slug: true }
+  });
+  const existingSlugs = existingArticles.map(article => article.slug);
+  
+  // Generate unique slug
+  const uniqueSlug = generateUniqueSlug(baseSlug, existingSlugs);
+  
+  const article = await prisma.article.create({
+    data: {
+      slug: uniqueSlug,
+      categoryId: data.categoryId,
+      publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
+      isPublished: data.isPublished || false,
+      translations: {
+        create: data.translations
+      },
+      tags: data.tagIds ? {
+        create: data.tagIds.map(tagId => ({ tagId }))
+      } : undefined,
+      attachments: data.attachmentIds ? {
+        create: data.attachmentIds.map((attachmentId, index) => ({
+          attachmentsId: attachmentId,
+          order: index
+        }))
+      } : undefined
+    },
+    include: {
+      translations: true,
+      category: {
+        include: {
+          translations: true
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
+        }
+      },
+      attachments: {
+        include: {
+          attachment: true
+        },
+        orderBy: {
+          order: 'asc'
+        }
+      }
+    }
+  });
 
-	// Ensure only one default translation
-	const defaultTranslations = data.translations.filter((t) => t.isDefault)
-	if (defaultTranslations.length !== 1) {
-		throw new Error("EXACTLY_ONE_DEFAULT_TRANSLATION_REQUIRED")
-	}
+  return formatArticleResponse(article);
+};
 
-	// Generate slug if not provided
-	let slug = data.slug
-	if (!slug) {
-		// Use the default translation title to generate slug
-		const defaultTranslation = defaultTranslations[0]
-		slug = generateSlug(defaultTranslation.title)
-	} else {
-		// Validate provided slug
-		if (!isValidSlug(slug)) {
-			throw new Error("INVALID_SLUG_FORMAT")
-		}
-	}
+export const getArticles = async (lang: string, filters: ArticleFilters = {}, page = 1, limit = 10): Promise<ArticleListResponse> => {
+  const skip = (page - 1) * limit;
+  
+  const where: any = {};
+  
+  if (filters.categoryId) {
+    where.categoryId = filters.categoryId;
+  }
+  
+  if (filters.tagIds && filters.tagIds.length > 0) {
+    where.tags = {
+      some: {
+        tagId: {
+          in: filters.tagIds
+        }
+      }
+    };
+  }
+  
+  if (filters.isPublished !== undefined) {
+    where.isPublished = filters.isPublished;
+  }
+  
+  if (filters.search) {
+    where.translations = {
+      some: {
+        OR: [
+          { title: { contains: filters.search, mode: 'insensitive' } },
+          { summary: { contains: filters.search, mode: 'insensitive' } },
+          { body: { contains: filters.search, mode: 'insensitive' } }
+        ]
+      }
+    };
+  }
 
-	// Ensure slug is unique
-	const existingArticles = await prisma.article.findMany({
-		select: { slug: true },
-	})
-	const existingSlugs = existingArticles.map((article) => article.slug)
-	const uniqueSlug = generateUniqueSlug(slug, existingSlugs)
+  const [articles, total] = await Promise.all([
+    prisma.article.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        translations: true,
+        category: {
+          include: {
+            translations: true
+          }
+        },
+        tags: {
+          include: {
+            tag: {
+              include: {
+                translations: true
+              }
+            }
+          }
+        },
+        attachments: {
+          include: {
+            attachment: true
+          },
+          orderBy: {
+            order: 'asc'
+          }
+        }
+      }
+    }),
+    prisma.article.count({ where })
+  ]);
 
-	// If attachments are provided, verify they exist
-	if (data.attachments && data.attachments.length > 0) {
-		const attachmentIds = data.attachments.map((a) => a.attachmentId)
-		const existingAttachments = await prisma.attachments.findMany({
-			where: { id: { in: attachmentIds } },
-		})
+  return {
+    articles: articles.map(article => formatArticleResponse(article, lang)),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+};
 
-		if (existingAttachments.length !== attachmentIds.length) {
-			throw new Error("SOME_ATTACHMENTS_NOT_FOUND")
-		}
+export const getArticleById = async (id: number, lang: string): Promise<ArticleResponse | null> => {
+  const article = await prisma.article.findUnique({
+    where: { id },
+    include: {
+      translations: true,
+      category: {
+        include: {
+          translations: true
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
+        }
+      },
+      attachments: {
+        include: {
+          attachment: true
+        },
+        orderBy: {
+          order: 'asc'
+        }
+      }
+    }
+  });
 
-		// Check for duplicate attachment IDs
-		const duplicateIds = attachmentIds.filter(
-			(id, index) => attachmentIds.indexOf(id) !== index,
-		)
-		if (duplicateIds.length > 0) {
-			throw new Error("DUPLICATE_ATTACHMENT_IDS")
-		}
+  if (!article) return null;
 
-		// Check for duplicate orders
-		const orders = data.attachments.map((a) => a.order)
-		const duplicateOrders = orders.filter(
-			(order, index) => orders.indexOf(order) !== index,
-		)
-		if (duplicateOrders.length > 0) {
-			throw new Error("DUPLICATE_ATTACHMENT_ORDERS")
-		}
-	}
+  // Increment view count
+  await prisma.article.update({
+    where: { id },
+    data: { views: { increment: 1 } }
+  });
 
-	const article = await prisma.article.create({
-		data: {
-			slug: uniqueSlug,
-			views: 0,
-			publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
-			isPublished: data.isPublished || false,
-			categoryId: data.categoryId,
-			translations: {
-				create: data.translations.map((translation) => ({
-					languageCode: translation.languageCode,
-					isDefault: translation.isDefault,
-					title: translation.title,
-					summary: translation.summary,
-					body: translation.body,
-					metaTitle: translation.metaTitle,
-					metaDescription: translation.metaDescription,
-				})),
-			},
-			...(data.attachments &&
-				data.attachments.length > 0 && {
-					attachments: {
-						create: data.attachments.map((attachment) => ({
-							attachmentsId: attachment.attachmentId,
-							type: attachment.type,
-							order: attachment.order,
-							caption: attachment.caption,
-						})),
-					},
-				}),
-		},
-		include: {
-			category: true,
-			translations: {
-				include: {
-					language: true,
-				},
-			},
-			attachments: {
-				include: {
-					attachment: true,
-				},
-				orderBy: { order: "asc" },
-			},
-		},
-	})
+  return formatArticleResponse(article, lang);
+};
 
-	return formatArticleResponse(article)
-}
+export const getArticleBySlug = async (slug: string, lang: string): Promise<ArticleResponse | null> => {
+  const article = await prisma.article.findUnique({
+    where: { slug },
+    include: {
+      translations: true,
+      category: {
+        include: {
+          translations: true
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
+        }
+      },
+      attachments: {
+        include: {
+          attachment: true
+        },
+        orderBy: {
+          order: 'asc'
+        }
+      }
+    }
+  });
 
-export async function getArticleById(
-	id: number,
-	languageCode?: string,
-): Promise<ArticleResponse | null> {
-	const article = await prisma.article.findUnique({
-		where: { id },
-		include: {
-			category: true,
-			translations: {
-				where: languageCode ? { languageCode } : {},
-				include: {
-					language: true,
-				},
-			},
-			attachments: {
-				include: {
-					attachment: true,
-				},
-				orderBy: { order: "asc" },
-			},
-		},
-	})
+  if (!article) return null;
 
-	if (!article) {
-		return null
-	}
+  // Increment view count
+  await prisma.article.update({
+    where: { slug },
+    data: { views: { increment: 1 } }
+  });
 
-	// If no translations found for specific language, get default translation
-	if (languageCode && article.translations.length === 0) {
-		const articleWithDefault = await prisma.article.findUnique({
-			where: { id },
-			include: {
-				category: true,
-				translations: {
-					where: { isDefault: true },
-					include: {
-						language: true,
-					},
-				},
-				attachments: {
-					include: {
-						attachment: true,
-					},
-					orderBy: { order: "asc" },
-				},
-			},
-		})
-		return articleWithDefault
-			? formatArticleResponse(articleWithDefault)
-			: null
-	}
+  return formatArticleResponse(article, lang);
+};
 
-	return formatArticleResponse(article)
-}
+export const updateArticle = async (id: number, data: UpdateArticleRequest): Promise<ArticleResponse | null> => {
+  const existingArticle = await prisma.article.findUnique({
+    where: { id },
+    include: { translations: true }
+  });
 
-export async function getArticleBySlug(
-	slug: string,
-	languageCode?: string,
-): Promise<ArticleResponse | null> {
-	const article = await prisma.article.findFirst({
-		where: { slug },
-		include: {
-			category: true,
-			translations: {
-				where: languageCode ? { languageCode } : {},
-				include: {
-					language: true,
-				},
-			},
-			attachments: {
-				include: {
-					attachment: true,
-				},
-				orderBy: { order: "asc" },
-			},
-		},
-	})
+  if (!existingArticle) return null;
 
-	if (!article) {
-		return null
-	}
+  // Validate category if provided
+  if (data.categoryId) {
+    const categoryExists = await prisma.category.findUnique({
+      where: { id: data.categoryId }
+    });
+    
+    if (!categoryExists) {
+      throw new Error(`Category with ID ${data.categoryId} does not exist`);
+    }
+  }
 
-	// If no translations found for specific language, get default translation
-	if (languageCode && article.translations.length === 0) {
-		const articleWithDefault = await prisma.article.findFirst({
-			where: { slug },
-			include: {
-				category: true,
-				translations: {
-					where: { isDefault: true },
-					include: {
-						language: true,
-					},
-				},
-				attachments: {
-					include: {
-						attachment: true,
-					},
-					orderBy: { order: "asc" },
-				},
-			},
-		})
-		return articleWithDefault
-			? formatArticleResponse(articleWithDefault)
-			: null
-	}
+  // Validate tags if provided
+  if (data.tagIds && data.tagIds.length > 0) {
+    const existingTags = await prisma.tag.findMany({
+      where: { id: { in: data.tagIds } }
+    });
+    
+    if (existingTags.length !== data.tagIds.length) {
+      const existingTagIds = existingTags.map(tag => tag.id);
+      const missingTagIds = data.tagIds.filter(id => !existingTagIds.includes(id));
+      throw new Error(`Tags with IDs ${missingTagIds.join(', ')} do not exist`);
+    }
+  }
 
-	// Increment views
-	await prisma.article.update({
-		where: { id: article.id },
-		data: { views: { increment: 1 } },
-	})
+  // Validate attachments if provided
+  if (data.attachmentIds && data.attachmentIds.length > 0) {
+    const existingAttachments = await prisma.attachments.findMany({
+      where: { id: { in: data.attachmentIds } }
+    });
+    
+    if (existingAttachments.length !== data.attachmentIds.length) {
+      const existingAttachmentIds = existingAttachments.map(attachment => attachment.id);
+      const missingAttachmentIds = data.attachmentIds.filter(id => !existingAttachmentIds.includes(id));
+      throw new Error(`Attachments with IDs ${missingAttachmentIds.join(', ')} do not exist`);
+    }
+  }
 
-	return formatArticleResponse(article)
-}
+  let updateData: any = {};
 
-export async function getArticles(query: GetArticlesQuery = {}) {
-	const { page = 1, limit = 10, categoryId, languageCode, search } = query
-	const skip = (page - 1) * limit
+  if (data.categoryId) {
+    updateData.categoryId = data.categoryId;
+  }
 
-	const where: any = {}
+  if (data.publishedAt !== undefined) {
+    updateData.publishedAt = data.publishedAt ? new Date(data.publishedAt) : null;
+  }
 
-	if (categoryId) {
-		where.categoryId = categoryId
-	}
+  if (data.isPublished !== undefined) {
+    updateData.isPublished = data.isPublished;
+  }
 
-	if (search || languageCode) {
-		where.translations = {
-			some: {
-				...(languageCode && { languageCode }),
-				...(search && {
-					OR: [
-						{ title: { contains: search, mode: "insensitive" } },
-						{ summary: { contains: search, mode: "insensitive" } },
-						{ body: { contains: search, mode: "insensitive" } },
-					],
-				}),
-			},
-		}
-	}
+  // Handle slug update if title changed
+  if (data.translations) {
+    const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
+    const currentDefaultTranslation = existingArticle.translations.find(t => t.isDefault);
+    
+    if (currentDefaultTranslation && defaultTranslation.title !== currentDefaultTranslation.title) {
+      // Generate new unique slug
+      const baseSlug = generateSlug(defaultTranslation.title);
+      
+      // Get all existing article slugs except the current one
+      const existingArticles = await prisma.article.findMany({
+        select: { slug: true },
+        where: { id: { not: id } }
+      });
+      const existingSlugs = existingArticles.map(article => article.slug);
+      
+      // Generate unique slug
+      const uniqueSlug = generateUniqueSlug(baseSlug, existingSlugs);
+      updateData.slug = uniqueSlug;
+    }
 
-	const [articles, total] = await Promise.all([
-		prisma.article.findMany({
-			where,
-			include: {
-				category: true,
-				translations: {
-					where: languageCode
-						? { languageCode }
-						: { isDefault: true },
-					include: {
-						language: true,
-					},
-				},
-				attachments: {
-					include: {
-						attachment: true,
-					},
-					orderBy: { order: "asc" },
-				},
-			},
-			orderBy: { createdAt: "desc" },
-			skip,
-			take: limit,
-		}),
-		prisma.article.count({ where }),
-	])
+    updateData.translations = {
+      deleteMany: {},
+      create: data.translations
+    };
+  }
 
-	return {
-		articles: articles.map(formatArticleResponse),
-		pagination: {
-			page,
-			limit,
-			total,
-			totalPages: Math.ceil(total / limit),
-		},
-	}
-}
+  // Handle tags update
+  if (data.tagIds !== undefined) {
+    updateData.tags = {
+      deleteMany: {},
+      create: data.tagIds.map(tagId => ({ tagId }))
+    };
+  }
 
-export async function updateArticle(
-	id: number,
-	data: UpdateArticleRequest,
-): Promise<ArticleResponse> {
-	const existingArticle = await prisma.article.findUnique({
-		where: { id },
-		include: { translations: true },
-	})
+  // Handle attachments update
+  if (data.attachmentIds !== undefined) {
+    updateData.attachments = {
+      deleteMany: {},
+      create: data.attachmentIds.map((attachmentId, index) => ({
+        attachmentsId: attachmentId,
+        order: index
+      }))
+    };
+  }
 
-	if (!existingArticle) {
-		throw new Error("ARTICLE_NOT_FOUND")
-	}
+  const updatedArticle = await prisma.article.update({
+    where: { id },
+    data: updateData,
+    include: {
+      translations: true,
+      category: {
+        include: {
+          translations: true
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
+        }
+      },
+      attachments: {
+        include: {
+          attachment: true
+        },
+        orderBy: {
+          order: 'asc'
+        }
+      }
+    }
+  });
 
-	// Handle slug update
-	let slugToUpdate = data.slug
+  return formatArticleResponse(updatedArticle);
+};
 
-	if (data.slug) {
-		// If slug is provided, validate it
-		if (!isValidSlug(data.slug)) {
-			throw new Error("INVALID_SLUG_FORMAT")
-		}
+export const deleteArticle = async (id: number): Promise<boolean> => {
+  try {
+    await prisma.article.delete({
+      where: { id }
+    });
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
-		// Check slug uniqueness if updating slug
-		if (data.slug !== existingArticle.slug) {
-			const slugExists = await prisma.article.findFirst({
-				where: { slug: data.slug, id: { not: id } },
-			})
-			if (slugExists) {
-				// Generate unique slug
-				const existingArticles = await prisma.article.findMany({
-					where: { id: { not: id } },
-					select: { slug: true },
-				})
-				const existingSlugs = existingArticles.map(
-					(article) => article.slug,
-				)
-				slugToUpdate = generateUniqueSlug(data.slug, existingSlugs)
-			}
-		}
-	} else if (data.translations) {
-		// If translations are being updated but no slug provided, regenerate from default title
-		const defaultTranslation = data.translations.find((t) => t.isDefault)
-		if (defaultTranslation) {
-			const newSlug = generateSlug(defaultTranslation.title)
-			const existingArticles = await prisma.article.findMany({
-				where: { id: { not: id } },
-				select: { slug: true },
-			})
-			const existingSlugs = existingArticles.map(
-				(article) => article.slug,
-			)
-			slugToUpdate = generateUniqueSlug(newSlug, existingSlugs)
-		}
-	}
+const formatArticleResponse = (article: any, lang?: string): ArticleResponse => {
+  const translation = lang 
+    ? article.translations.find((t: any) => t.languageCode === lang) || article.translations.find((t: any) => t.isDefault)
+    : article.translations.find((t: any) => t.isDefault);
 
-	// Validate translations if provided
-	if (data.translations) {
-		const languageCodes = data.translations.map((t) => t.languageCode)
-		const languages = await prisma.language.findMany({
-			where: { code: { in: languageCodes } },
-		})
+  return {
+    id: article.id,
+    slug: article.slug,
+    views: article.views,
+    publishedAt: article.publishedAt,
+    isPublished: article.isPublished,
+    categoryId: article.categoryId,
+    createdAt: article.createdAt,
+    updatedAt: article.updatedAt,
+    title: translation?.title || '',
+    summary: translation?.summary,
+    body: translation?.body || '',
+    category: article.category ? {
+      id: article.category.id,
+      slug: article.category.slug,
+      name: getCategoryName(article.category, lang)
+    } : undefined,
+    tags: article.tags?.map((articleTag: any) => ({
+      id: articleTag.tag.id,
+      slug: articleTag.tag.slug,
+      name: getTagName(articleTag.tag, lang)
+    })),
+    attachments: article.attachments?.map((articleAttachment: any) => ({
+      id: articleAttachment.attachment.id,
+      originalName: articleAttachment.attachment.originalName,
+      fileName: articleAttachment.attachment.fileName,
+      path: articleAttachment.attachment.path,
+      mimeType: articleAttachment.attachment.mimeType,
+      size: articleAttachment.attachment.size,
+      altText: articleAttachment.attachment.altText,
+      order: articleAttachment.order
+    }))
+  };
+};
 
-		if (languages.length !== languageCodes.length) {
-			throw new Error("INVALID_LANGUAGE_CODES")
-		}
+const getCategoryName = (category: any, lang?: string): string => {
+  const translation = lang 
+    ? category.translations.find((t: any) => t.languageCode === lang) || category.translations.find((t: any) => t.isDefault)
+    : category.translations.find((t: any) => t.isDefault);
+  
+  return translation?.name || '';
+};
 
-		const defaultTranslations = data.translations.filter((t) => t.isDefault)
-		if (defaultTranslations.length > 1) {
-			throw new Error("ONLY_ONE_DEFAULT_TRANSLATION_ALLOWED")
-		}
-	}
-
-	// If attachments are provided, verify they exist
-	if (data.attachments && data.attachments.length > 0) {
-		const attachmentIds = data.attachments.map((a) => a.attachmentId)
-		const existingAttachments = await prisma.attachments.findMany({
-			where: { id: { in: attachmentIds } },
-		})
-
-		if (existingAttachments.length !== attachmentIds.length) {
-			throw new Error("SOME_ATTACHMENTS_NOT_FOUND")
-		}
-
-		// Check for duplicate attachment IDs
-		const duplicateIds = attachmentIds.filter(
-			(id, index) => attachmentIds.indexOf(id) !== index,
-		)
-		if (duplicateIds.length > 0) {
-			throw new Error("DUPLICATE_ATTACHMENT_IDS")
-		}
-
-		// Check for duplicate orders
-		const orders = data.attachments.map((a) => a.order)
-		const duplicateOrders = orders.filter(
-			(order, index) => orders.indexOf(order) !== index,
-		)
-		if (duplicateOrders.length > 0) {
-			throw new Error("DUPLICATE_ATTACHMENT_ORDERS")
-		}
-	}
-
-	const updateData: any = {}
-
-	if (slugToUpdate) updateData.slug = slugToUpdate
-	if (data.categoryId) updateData.categoryId = data.categoryId
-	if (data.publishedAt !== undefined) updateData.publishedAt = data.publishedAt ? new Date(data.publishedAt) : null
-	if (data.isPublished !== undefined) updateData.isPublished = data.isPublished
-
-	const article = await prisma.article.update({
-		where: { id },
-		data: updateData,
-		include: {
-			category: true,
-			translations: {
-				include: {
-					language: true,
-				},
-			},
-			attachments: {
-				include: {
-					attachment: true,
-				},
-				orderBy: { order: "asc" },
-			},
-		},
-	})
-
-	// Update translations if provided
-	if (data.translations) {
-		// Delete existing translations and create new ones
-		await prisma.articleTranslation.deleteMany({
-			where: { articleId: id },
-		})
-
-		await prisma.articleTranslation.createMany({
-			data: data.translations.map((translation) => ({
-				articleId: id,
-				languageCode: translation.languageCode,
-				isDefault: translation.isDefault || false,
-				title: translation.title,
-				summary: translation.summary,
-				body: translation.body,
-				metaTitle: translation.metaTitle,
-				metaDescription: translation.metaDescription,
-			})),
-		})
-	}
-
-	// Update attachments if provided
-	if (data.attachments !== undefined) {
-		// Delete existing attachments
-		await prisma.articleAttachments.deleteMany({
-			where: { articleId: id },
-		})
-
-		// Add new attachments if any
-		if (data.attachments.length > 0) {
-			await prisma.articleAttachments.createMany({
-				data: data.attachments.map((attachment) => ({
-					articleId: id,
-					attachmentsId: attachment.attachmentId,
-					type: attachment.type,
-					order: attachment.order,
-					caption: attachment.caption,
-				})),
-			})
-		}
-	}
-
-	// Fetch updated article with all relations
-	const updatedArticle = await prisma.article.findUnique({
-		where: { id },
-		include: {
-			category: true,
-			translations: {
-				include: {
-					language: true,
-				},
-			},
-			attachments: {
-				include: {
-					attachment: true,
-				},
-				orderBy: { order: "asc" },
-			},
-		},
-	})
-
-	return formatArticleResponse(updatedArticle!)
-}
-
-export async function deleteArticle(id: number): Promise<void> {
-	const article = await prisma.article.findUnique({
-		where: { id },
-	})
-
-	if (!article) {
-		throw new Error("ARTICLE_NOT_FOUND")
-	}
-
-	// Delete related records first to avoid foreign key constraint violations
-	await prisma.articleTranslation.deleteMany({
-		where: { articleId: id },
-	})
-
-	await prisma.articleAttachments.deleteMany({
-		where: { articleId: id },
-	})
-
-	// Now delete the article itself
-	await prisma.article.delete({
-		where: { id },
-	})
-}
-
-function formatArticleResponse(article: any): ArticleResponse {
-	const baseUrl =
-		process.env.NODE_ENV === "production"
-			? process.env.BASE_URL || "https://api.example.com"
-			: `http://localhost:${process.env.PORT || 8000}`
-
-	return {
-		id: article.id,
-		slug: article.slug,
-		views: article.views,
-		publishedAt: article.publishedAt ? article.publishedAt.toISOString() : null,
-		isPublished: article.isPublished,
-		categoryId: article.categoryId,
-		createdAt: article.createdAt.toISOString(),
-		updatedAt: article.updatedAt.toISOString(),
-		category: article.category,
-		translations: article.translations.map((translation: any) => ({
-			id: translation.id,
-			articleId: translation.articleId,
-			languageCode: translation.languageCode,
-			isDefault: translation.isDefault,
-			title: translation.title,
-			summary: translation.summary,
-			body: translation.body,
-			metaTitle: translation.metaTitle,
-			metaDescription: translation.metaDescription,
-			language: translation.language,
-		})),
-		attachments: article.attachments
-			? article.attachments.map((item: any) => ({
-					id: item.id,
-					articleId: item.articleId,
-					attachmentId: item.attachmentsId,
-					type: item.type,
-					order: item.order,
-					caption: item.caption,
-					attachment: {
-						id: item.attachment.id,
-						originalName: item.attachment.originalName,
-						fileName: item.attachment.fileName,
-						path: item.attachment.path,
-						mimeType: item.attachment.mimeType,
-						size: item.attachment.size,
-						disk: item.attachment.disk,
-						collection: item.attachment.collection,
-						altText: item.attachment.altText,
-						metadata: item.attachment.metadata,
-						createdAt: item.attachment.createdAt.toISOString(),
-						updatedAt: item.attachment.updatedAt.toISOString(),
-						url: `${baseUrl}/api/v1/attachments/uploads/${item.attachment.path}`,
-					},
-			  }))
-			: [],
-	}
-}
+const getTagName = (tag: any, lang?: string): string => {
+  const translation = lang 
+    ? tag.translations.find((t: any) => t.languageCode === lang) || tag.translations.find((t: any) => t.isDefault)
+    : tag.translations.find((t: any) => t.isDefault);
+  
+  return translation?.name || '';
+};

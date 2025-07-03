@@ -214,10 +214,15 @@ export const deleteAttachment = async (id: number): Promise<boolean> => {
       return false;
     }
 
+    // Convert HTTP URL back to file system path for deletion
+    const baseUrl = process.env.BASE_URL || 'http://localhost:8000';
+    const relativePath = attachment.path.replace(baseUrl, '');
+    const filePath = path.join(process.cwd(), relativePath.replace(/^\//, ''));
+
     // Delete the physical file
     try {
-      if (fs.existsSync(attachment.path)) {
-        fs.unlinkSync(attachment.path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
       }
     } catch (fileError) {
       console.warn(`Failed to delete physical file: ${fileError}`);

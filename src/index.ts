@@ -4,22 +4,21 @@ import cors from "cors"
 import cookieParser from "cookie-parser"
 import swaggerUi from "swagger-ui-express"
 import YAML from "yamljs"
-
+import path from 'path';
 import { env } from "./config/env"
 import authRoutes from "./routes/auth.routes"
 import userRoutes from "./routes/user.routes"
-// import articleRouter from "./routes/article.routes"
-// import attachmentRouter from "./routes/attachment.routes"
-// import bookRouter from "./routes/book.routes"
-// import researchRouter from "./routes/research.routes" 
-
-// import bookCategoryRouter from "./routes/bookCategory.routes"
-import { authenticateJWT } from "./middlewares/auth.middleware"
-import { errorHandler } from "./middlewares/error.middleware"
 import categoryRoutes from './routes/category.routes';
 import tagRoutes from './routes/tag.routes';
 import attachmentRouter from "./routes/attachment.routes"
+import articleRoutes from './routes/article.routes';
+import researchRoutes from './routes/research.routes';
+import { authenticateJWT } from "./middlewares/auth.middleware"
+import { errorHandler } from "./middlewares/error.middleware"
+
 const app = express()
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // 1) JSON body parser
 app.use(express.json())
@@ -64,35 +63,19 @@ app.use("/api/v1/auth", authRoutes)
 // 8) Protected user routes (JWT required)
 app.use("/api/v1/users", authenticateJWT, userRoutes)
 
+// 9) Attachment routes (mixed public/protected)
+app.use("/api/v1/attachments", attachmentRouter)
 
-
-
+// 10) Language-specific protected routes (JWT required)
+// Note: Make sure route files use Router({ mergeParams: true })
 app.use('/api/v1/:lang/categories', categoryRoutes);
 app.use('/api/v1/:lang/tags', tagRoutes);
-
-
-app.use('/api/v1/attachments', attachmentRouter);
-
-
-
-// 9) Attachment routes (mixed public/protected)
-// app.use("/api/v1/attachments", attachmentRouter)
-
-
-
-// 11) Language-specific article routes (JWT required for create/update/delete)
-// app.use("/api/v1", articleRouter)
-
-// 12) Book routes (mixed public/protected)
-// app.use("/api/v1", bookRouter)
-
-// 13) Research routes (mixed public/protected)
-// app.use("/api/v1", researchRouter)
-
-// 14) Global error handler
+app.use('/api/v1/:lang/articles', articleRoutes); 
+app.use('/api/v1/:lang/research', researchRoutes); 
+// 11) Global error handler
 app.use(errorHandler)
 
-// 15) Start server
+// 12) Start server
 app.listen(env.PORT, () => {
 	console.log(
 		`📡 [${env.NODE_ENV}] Listening on http://localhost:${env.PORT}`,

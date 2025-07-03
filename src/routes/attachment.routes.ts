@@ -8,11 +8,6 @@ import {
   downloadHandler,
   upload
 } from '../controllers/attachment.controller';
-import {
-  createValidation,
-  updateValidation,
-  deleteValidation
-} from '../validations/attachment.validations';
 import { authenticateJWT } from '../middlewares/auth.middleware';
 import { authorize } from '../middlewares/auth.middleware';
 
@@ -24,7 +19,6 @@ router.post(
   authenticateJWT,
   authorize('CREATE_ATTACHMENTS'),
   upload.single('file'),
-  createValidation,
   createHandler
 );
 
@@ -57,7 +51,6 @@ router.put(
   '/:id',
   authenticateJWT,
   authorize('UPDATE_ATTACHMENTS'),
-  updateValidation,
   updateHandler
 );
 
@@ -66,7 +59,6 @@ router.delete(
   '/:id',
   authenticateJWT,
   authorize('DELETE_ATTACHMENTS'),
-  deleteValidation,
   deleteHandler
 );
 

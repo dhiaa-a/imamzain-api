@@ -1,89 +1,77 @@
-// src/validations/article.validations.ts
-import { z } from "zod"
-import { Request, Response, NextFunction } from "express"
+import { z } from 'zod';
 
-const createArticleTranslationSchema = z.object({
-	languageCode: z.string().min(2).max(5),
-	isDefault: z.boolean(),
-	title: z.string().min(1).max(500),
-	summary: z.string().optional(),
-	body: z.string().min(1),
-	metaTitle: z.string().max(60).optional(),
-	metaDescription: z.string().max(160).optional(),
-})
+export const createArticleSchemaValidation = z.object({
+  body: z.object({
+    translations: z.array(z.object({
+      languageCode: z.string().length(2),
+      isDefault: z.boolean(),
+      title: z.string().min(1).max(255),
+      summary: z.string().max(500).optional(),
+      body: z.string().min(1)
+    })).min(1),
+    categoryId: z.number().int().positive(),
+    tagIds: z.array(z.number().int().positive()).optional(),
+    attachmentIds: z.array(z.number().int().positive()).optional(),
+    publishedAt: z.string().datetime().optional(),
+    isPublished: z.boolean().optional()
+  }),
+  params: z.object({
+    lang: z.string().length(2)
+  })
+});
 
-const articleAttachmentSchema = z.object({
-	attachmentId: z.number().int().positive(),
-	type: z.enum(["featured", "gallery", "attachment", "other"]),
-	order: z.number().int().min(0),
-	caption: z.string().optional(),
-})
+export const updateArticleSchemaValidation = z.object({
+  body: z.object({
+    translations: z.array(z.object({
+      languageCode: z.string().length(2),
+      isDefault: z.boolean(),
+      title: z.string().min(1).max(255),
+      summary: z.string().max(500).optional(),
+      body: z.string().min(1)
+    })).min(1).optional(),
+    categoryId: z.number().int().positive().optional(),
+    tagIds: z.array(z.number().int().positive()).optional(),
+    attachmentIds: z.array(z.number().int().positive()).optional(),
+    publishedAt: z.string().datetime().optional(),
+    isPublished: z.boolean().optional()
+  }),
+  params: z.object({
+    lang: z.string().length(2),
+    id: z.string().transform(val => parseInt(val)).refine(val => !isNaN(val) && val > 0)
+  })
+});
 
-const createArticleSchema = z.object({
-	slug: z.string().min(1).max(255).optional(),
-	categoryId: z.number().int().positive(),
-	publishedAt: z.string().datetime().optional(),
-	isPublished: z.boolean().optional(),
-	translations: z.array(createArticleTranslationSchema).min(1),
-	attachments: z.array(articleAttachmentSchema).optional(),
-})
+export const getArticleSchemaValidation = z.object({
+  params: z.object({
+    lang: z.string().length(2),
+    id: z.string().transform(val => parseInt(val)).refine(val => !isNaN(val) && val > 0)
+  })
+});
 
-const updateArticleTranslationSchema = z.object({
-	id: z.number().int().positive().optional(),
-	languageCode: z.string().min(2).max(5),
-	isDefault: z.boolean().optional(),
-	title: z.string().min(1).max(500),
-	summary: z.string().optional(),
-	body: z.string().min(1),
-	metaTitle: z.string().max(60).optional(),
-	metaDescription: z.string().max(160).optional(),
-})
+export const getArticleBySlugSchemaValidation = z.object({
+  params: z.object({
+    lang: z.string().length(2),
+    slug: z.string().min(1)
+  })
+});
 
-const updateArticleSchema = z.object({
-	slug: z.string().min(1).max(255).optional(),
-	categoryId: z.number().int().positive().optional(),
-	publishedAt: z.string().datetime().optional(),
-	isPublished: z.boolean().optional(),
-	translations: z.array(updateArticleTranslationSchema).optional(),
-	attachments: z.array(articleAttachmentSchema).optional(),
-})
+export const getArticlesSchemaValidation = z.object({
+  params: z.object({
+    lang: z.string().length(2)
+  }),
+  query: z.object({
+    page: z.string().transform(val => parseInt(val) || 1).optional(),
+    limit: z.string().transform(val => parseInt(val) || 10).optional(),
+    categoryId: z.string().transform(val => parseInt(val)).refine(val => !isNaN(val) && val > 0).optional(),
+    tagIds: z.string().transform(val => val.split(',').map(id => parseInt(id))).optional(),
+    isPublished: z.string().transform(val => val === 'true').optional(),
+    search: z.string().optional()
+  })
+});
 
-export function validateCreateArticle(
-	req: Request,
-	res: Response,
-	next: NextFunction,
-): void {
-	try {
-		createArticleSchema.parse(req.body)
-		next()
-	} catch (error: any) {
-		res.status(400).json({
-			success: false,
-			error: {
-				code: "VALIDATION_ERROR",
-				message: "Invalid request data",
-				details: error.errors,
-			},
-		})
-	}
-}
-
-export function validateUpdateArticle(
-	req: Request,
-	res: Response,
-	next: NextFunction,
-): void {
-	try {
-		updateArticleSchema.parse(req.body)
-		next()
-	} catch (error: any) {
-		res.status(400).json({
-			success: false,
-			error: {
-				code: "VALIDATION_ERROR",
-				message: "Invalid request data",
-				details: error.errors,
-			},
-		})
-	}
-}
+export const deleteArticleSchemaValidation = z.object({
+  params: z.object({
+    lang: z.string().length(2),
+    id: z.string().transform(val => parseInt(val)).refine(val => !isNaN(val) && val > 0)
+  })
+});

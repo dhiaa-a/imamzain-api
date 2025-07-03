@@ -1,62 +1,63 @@
-// src/routes/article.routes.ts
-import { Router } from "express"
-import {
-	createArticleHandler,
-	getArticleHandler,
-	getArticleBySlugHandler,
-	getArticlesHandler,
-	updateArticleHandler,
-	deleteArticleHandler,
-} from "../controllers/article.controller"
-import { authorize, authenticateJWT } from "../middlewares/auth.middleware"
-import {
-	validateCreateArticle,
-	validateUpdateArticle,
-} from "../validations/article.validations"
-import { validateLanguage } from "../middlewares/language.middleware"
+import { Router } from 'express';
+import { validateLanguage } from '../middlewares/language.middleware';
+import { authenticateJWT, authorize } from '../middlewares/auth.middleware';
+import { 
+  createArticleHandler, 
+  getArticlesHandler, 
+  getArticleByIdHandler, 
+  getArticleBySlugHandler,
+  updateArticleHandler, 
+  deleteArticleHandler 
+} from '../controllers/article.controller';
 
-const articleRouter = Router()
+const router = Router({ mergeParams: true });
 
-// GET /api/v1/:lang/articles - Get all articles with filtering (public)
-articleRouter.get("/:lang/articles", validateLanguage, getArticlesHandler)
+// Create article
+router.post('/', 
+  validateLanguage, 
+  authenticateJWT, 
+  authorize("CREATE_ARTICLE"), 
+  createArticleHandler
+);
 
-// GET /api/v1/:lang/articles/:id - Get article by ID (public)
-articleRouter.get("/:lang/articles/:id", validateLanguage, getArticleHandler)
+// Get all articles with filtering and pagination
+router.get('/', 
+  validateLanguage, 
+  authenticateJWT, 
+  authorize("READ_ARTICLE"), 
+  getArticlesHandler
+);
 
-// GET /api/v1/:lang/articles/slug/:slug - Get article by slug (public)
-articleRouter.get(
-	"/:lang/articles/slug/:slug",
-	validateLanguage,
-	getArticleBySlugHandler,
-)
+// Get article by ID
+router.get('/:id', 
+  validateLanguage, 
+  authenticateJWT, 
+  authorize("READ_ARTICLE"), 
+  getArticleByIdHandler
+);
 
-// POST /api/v1/:lang/articles - Create new article (requires permission)
-articleRouter.post(
-	"/:lang/articles",
-	validateLanguage,
-	authenticateJWT,
-	authorize("CREATE_ARTICLE"),
-	validateCreateArticle,
-	createArticleHandler,
-)
+// Get article by slug
+router.get('/slug/:slug', 
+  validateLanguage, 
+  authenticateJWT, 
+  authorize("READ_ARTICLE"), 
+  getArticleBySlugHandler
+);
 
-// PUT /api/v1/:lang/articles/:id - Update article (requires permission)
-articleRouter.put(
-	"/:lang/articles/:id",
-	validateLanguage,
-	authenticateJWT,
-	authorize("UPDATE_ARTICLE"),
-	validateUpdateArticle,
-	updateArticleHandler,
-)
+// Update article
+router.put('/:id', 
+  validateLanguage, 
+  authenticateJWT, 
+  authorize("UPDATE_ARTICLE"), 
+  updateArticleHandler
+);
 
-// DELETE /api/v1/:lang/articles/:id - Delete article (requires permission)
-articleRouter.delete(
-	"/:lang/articles/:id",
-	validateLanguage,
-	authenticateJWT,
-	authorize("DELETE_ARTICLE"),
-	deleteArticleHandler,
-)
+// Delete article
+router.delete('/:id', 
+  validateLanguage, 
+  authenticateJWT, 
+  authorize("DELETE_ARTICLE"), 
+  deleteArticleHandler
+);
 
-export default articleRouter
+export default router;

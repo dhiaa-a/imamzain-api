@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { 
   createAttachment,
   getAttachmentById,
@@ -9,6 +10,12 @@ import {
   getFileTypeDirectory
 } from '../services/attachment.service';
 import { AttachmentFilters } from '../types/attachment.types';
+import { 
+  createAttachmentSchema,
+  updateAttachmentSchema,
+  getAttachmentSchema,
+  deleteAttachmentSchema
+} from '../validations/attachment.validations';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -49,24 +56,46 @@ export const upload = multer({
 
 export const createHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const file = req.file;
-    
-    if (!file) {
+    // Check if file was uploaded
+    if (!req.file) {
       res.status(400).json({
         success: false,
-        message: 'No file uploaded'
+        message: 'No file uploaded',
+        errors: [{
+          field: 'file',
+          message: 'File is required'
+        }]
       });
       return;
     }
 
+    // Validate request using schema
+    const validationResult = createAttachmentSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    // Generate HTTP URL for the file
+    const baseUrl = process.env.BASE_URL || 'http://localhost:8000';
+    const fileTypeDir = getFileTypeDirectory(req.file.mimetype);
+    const fileUrl = `${baseUrl}/uploads/${fileTypeDir}/${req.file.filename}`;
+
     const attachmentData = {
-      originalName: file.originalname,
-      fileName: file.filename,
-      path: file.path,
-      mimeType: file.mimetype,
-      size: file.size,
+      originalName: req.file.originalname,
+      fileName: req.file.filename,
+      path: fileUrl, // Store HTTP URL instead of file system path
+      mimeType: req.file.mimetype,
+      size: req.file.size,
       altText: req.body.altText || null,
-      metadata: req.body.metadata ? JSON.parse(req.body.metadata) : null
+      metadata: validationResult.data.body.metadata || null
     };
 
     const attachment = await createAttachment(attachmentData);
@@ -91,7 +120,21 @@ export const createHandler = async (req: Request, res: Response): Promise<void> 
 
 export const getByIdHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    // Validate request using schema
+    const validationResult = getAttachmentSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const id = validationResult.data.params.id;
     const attachment = await getAttachmentById(id);
 
     if (!attachment) {
@@ -156,8 +199,22 @@ export const getAllHandler = async (req: Request, res: Response): Promise<void> 
 
 export const updateHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
-    const updateData = req.body;
+    // Validate request using schema
+    const validationResult = updateAttachmentSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const id = validationResult.data.params.id;
+    const updateData = validationResult.data.body;
 
     const attachment = await updateAttachment(id, updateData);
 
@@ -184,7 +241,21 @@ export const updateHandler = async (req: Request, res: Response): Promise<void> 
 
 export const deleteHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    // Validate request using schema
+    const validationResult = deleteAttachmentSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const id = validationResult.data.params.id;
     const deleted = await deleteAttachment(id);
 
     if (!deleted) {
@@ -209,7 +280,21 @@ export const deleteHandler = async (req: Request, res: Response): Promise<void> 
 
 export const downloadHandler = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id);
+    // Validate request using schema
+    const validationResult = getAttachmentSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const id = validationResult.data.params.id;
     const attachment = await getAttachmentById(id);
 
     if (!attachment) {
@@ -220,7 +305,12 @@ export const downloadHandler = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    if (!fs.existsSync(attachment.path)) {
+    // Convert HTTP URL back to file system path
+    const baseUrl = process.env.BASE_URL || 'http://localhost:8000';
+    const relativePath = attachment.path.replace(baseUrl, '');
+    const filePath = path.join(process.cwd(), relativePath.replace(/^\//, ''));
+
+    if (!fs.existsSync(filePath)) {
       res.status(404).json({
         success: false,
         message: 'Physical file not found'
@@ -231,7 +321,7 @@ export const downloadHandler = async (req: Request, res: Response): Promise<void
     res.setHeader('Content-Disposition', `attachment; filename="${attachment.originalName}"`);
     res.setHeader('Content-Type', attachment.mimeType);
     
-    const fileStream = fs.createReadStream(attachment.path);
+    const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   } catch (error) {
     res.status(500).json({
