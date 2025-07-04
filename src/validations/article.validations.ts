@@ -12,6 +12,7 @@ export const createArticleSchemaValidation = z.object({
     categoryId: z.number().int().positive(),
     tagIds: z.array(z.number().int().positive()).optional(),
     attachmentIds: z.array(z.number().int().positive()).optional(),
+    mainImageId: z.number().int().positive().optional(), // New field for main image
     publishedAt: z.string().datetime().optional(),
     isPublished: z.boolean().optional()
   }),
@@ -32,6 +33,7 @@ export const updateArticleSchemaValidation = z.object({
     categoryId: z.number().int().positive().optional(),
     tagIds: z.array(z.number().int().positive()).optional(),
     attachmentIds: z.array(z.number().int().positive()).optional(),
+    mainImageId: z.number().int().positive().optional(), // New field for main image
     publishedAt: z.string().datetime().optional(),
     isPublished: z.boolean().optional()
   }),

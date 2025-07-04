@@ -3,13 +3,15 @@ export interface BookData {
   slug: string;
   isbn?: string;
   pages?: number;
-  parts?: number;
   views: number;
   partNumber?: number;
   totalParts?: number;
   publishYear?: string;
   isPublished: boolean;
   categoryId: number;
+  coverId?: number;        // New field for cover image
+  fileId?: number;         // New field for book file
+  parentBookId?: number;   // New field for self-relation
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +33,7 @@ export interface BookTranslationData {
 export interface BookCategoryData {
   id: number;
   slug: string;
+  model: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -44,15 +47,6 @@ export interface BookCategoryTranslationData {
   name: string;
 }
 
-export interface BookAttachmentData {
-  id: number;
-  bookId: number;
-  attachmentsId: number;
-  type: string;
-  order: number;
-  caption?: string;
-}
-
 export interface AttachmentData {
   id: number;
   originalName: string;
@@ -60,8 +54,6 @@ export interface AttachmentData {
   path: string;
   mimeType: string;
   size: number;
-  disk: string;
-  collection?: string;
   altText?: string;
   metadata?: any;
   createdAt: Date;
@@ -73,20 +65,36 @@ export interface BookWithTranslations extends BookData {
   category: BookCategoryData & {
     translations: BookCategoryTranslationData[];
   };
-  attachments: (BookAttachmentData & {
-    attachment: AttachmentData;
-  })[];
+  cover?: AttachmentData;    // Direct cover relation
+  file?: AttachmentData;     // Direct file relation
+  parentBook?: BookData & {  // Self-relation to parent
+    translations: BookTranslationData[];
+  };
+  parts?: BookData[];        // Self-relation to child parts
+  tags?: {
+    id: number;
+    tag: {
+      id: number;
+      slug: string;
+      translations: {
+        name: string;
+      }[];
+    };
+  }[];
 }
 
 export interface CreateBookRequest {
   isbn?: string;
   pages?: number;
-  parts?: number;
   partNumber?: number;
   totalParts?: number;
   publishYear?: string;
   isPublished?: boolean;
   categoryId: number;
+  coverId?: number;         // New field for cover image
+  fileId?: number;          // New field for book file
+  parentBookId?: number;    // New field for parent book
+  tagIds?: number[];        // Tag associations
   translations: {
     languageCode: string;
     isDefault?: boolean;
@@ -103,12 +111,15 @@ export interface CreateBookRequest {
 export interface UpdateBookRequest {
   isbn?: string;
   pages?: number;
-  parts?: number;
   partNumber?: number;
   totalParts?: number;
   publishYear?: string;
   isPublished?: boolean;
   categoryId?: number;
+  coverId?: number;         // New field for cover image
+  fileId?: number;          // New field for book file
+  parentBookId?: number;    // New field for parent book
+  tagIds?: number[];        // Tag associations
   translations?: {
     languageCode: string;
     isDefault?: boolean;
@@ -126,6 +137,9 @@ export interface BookQuery {
   categoryId?: number;
   isPublished?: boolean;
   publishYear?: string;
+  parentBookId?: number;    // Filter by parent book
+  hasParent?: boolean;      // Filter for parts or main books
+  tagIds?: number[];        // Filter by tags
   limit?: number;
   offset?: number;
   search?: string;
@@ -136,12 +150,15 @@ export interface BookResponse {
   slug: string;
   isbn?: string;
   pages?: number;
-  parts?: number;
   views: number;
   partNumber?: number;
   totalParts?: number;
   publishYear?: string;
   isPublished: boolean;
+  categoryId: number;
+  coverId?: number;
+  fileId?: number;
+  parentBookId?: number;
   createdAt: Date;
   updatedAt: Date;
   title: string;
@@ -156,19 +173,54 @@ export interface BookResponse {
     slug: string;
     name: string;
   };
-  attachments: {
+  cover?: {
     id: number;
-    type: string;
-    order: number;
-    caption?: string;
-    attachment: {
-      id: number;
-      originalName: string;
-      fileName: string;
-      path: string;
-      mimeType: string;
-      size: number;
-      altText?: string;
-    };
+    originalName: string;
+    fileName: string;
+    path: string;
+    mimeType: string;
+    size: number;
+    altText?: string;
+  };
+  file?: {
+    id: number;
+    originalName: string;
+    fileName: string;
+    path: string;
+    mimeType: string;
+    size: number;
+    altText?: string;
+  };
+  parentBook?: {
+    id: number;
+    slug: string;
+    title: string;
+  };
+  parts?: {
+    id: number;
+    slug: string;
+    title: string;
+    partNumber?: number;
+  }[];
+  tags?: {
+    id: number;
+    slug: string;
+    name: string;
+  }[];
+}
+
+export interface CreateBookCategoryRequest {
+  translations: {
+    languageCode: string;
+    isDefault?: boolean;
+    name: string;
+  }[];
+}
+
+export interface UpdateBookCategoryRequest {
+  translations?: {
+    languageCode: string;
+    isDefault?: boolean;
+    name: string;
   }[];
 }

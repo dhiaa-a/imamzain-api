@@ -38,6 +38,17 @@ export const createArticle = async (data: CreateArticleRequest): Promise<Article
     }
   }
 
+  // Validate main image exists if provided
+  if (data.mainImageId) {
+    const mainImageExists = await prisma.attachments.findUnique({
+      where: { id: data.mainImageId }
+    });
+    
+    if (!mainImageExists) {
+      throw new Error(`Main image with ID ${data.mainImageId} does not exist`);
+    }
+  }
+
   // Generate unique slug
   const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
   const baseSlug = generateSlug(defaultTranslation.title);
@@ -55,6 +66,7 @@ export const createArticle = async (data: CreateArticleRequest): Promise<Article
     data: {
       slug: uniqueSlug,
       categoryId: data.categoryId,
+      mainImageId: data.mainImageId, // Add main image support
       publishedAt: data.publishedAt ? new Date(data.publishedAt) : null,
       isPublished: data.isPublished || false,
       translations: {
@@ -64,9 +76,9 @@ export const createArticle = async (data: CreateArticleRequest): Promise<Article
         create: data.tagIds.map(tagId => ({ tagId }))
       } : undefined,
       attachments: data.attachmentIds ? {
-        create: data.attachmentIds.map((attachmentId, index) => ({
-          attachmentsId: attachmentId,
-          order: index
+        create: data.attachmentIds.map(attachmentId => ({
+          attachmentsId: attachmentId
+          // Removed order field
         }))
       } : undefined
     },
@@ -77,6 +89,7 @@ export const createArticle = async (data: CreateArticleRequest): Promise<Article
           translations: true
         }
       },
+      mainImage: true, // Include main image
       tags: {
         include: {
           tag: {
@@ -89,10 +102,8 @@ export const createArticle = async (data: CreateArticleRequest): Promise<Article
       attachments: {
         include: {
           attachment: true
-        },
-        orderBy: {
-          order: 'asc'
         }
+        // Removed orderBy since order field doesn't exist
       }
     }
   });
@@ -150,6 +161,7 @@ export const getArticles = async (lang: string, filters: ArticleFilters = {}, pa
             translations: true
           }
         },
+        mainImage: true, // Include main image
         tags: {
           include: {
             tag: {
@@ -162,10 +174,8 @@ export const getArticles = async (lang: string, filters: ArticleFilters = {}, pa
         attachments: {
           include: {
             attachment: true
-          },
-          orderBy: {
-            order: 'asc'
           }
+          // Removed orderBy since order field doesn't exist
         }
       }
     }),
@@ -193,6 +203,7 @@ export const getArticleById = async (id: number, lang: string): Promise<ArticleR
           translations: true
         }
       },
+      mainImage: true, // Include main image
       tags: {
         include: {
           tag: {
@@ -205,10 +216,8 @@ export const getArticleById = async (id: number, lang: string): Promise<ArticleR
       attachments: {
         include: {
           attachment: true
-        },
-        orderBy: {
-          order: 'asc'
         }
+        // Removed orderBy since order field doesn't exist
       }
     }
   });
@@ -234,6 +243,7 @@ export const getArticleBySlug = async (slug: string, lang: string): Promise<Arti
           translations: true
         }
       },
+      mainImage: true, // Include main image
       tags: {
         include: {
           tag: {
@@ -246,10 +256,8 @@ export const getArticleBySlug = async (slug: string, lang: string): Promise<Arti
       attachments: {
         include: {
           attachment: true
-        },
-        orderBy: {
-          order: 'asc'
         }
+        // Removed orderBy since order field doesn't exist
       }
     }
   });
@@ -310,10 +318,25 @@ export const updateArticle = async (id: number, data: UpdateArticleRequest): Pro
     }
   }
 
+  // Validate main image if provided
+  if (data.mainImageId) {
+    const mainImageExists = await prisma.attachments.findUnique({
+      where: { id: data.mainImageId }
+    });
+    
+    if (!mainImageExists) {
+      throw new Error(`Main image with ID ${data.mainImageId} does not exist`);
+    }
+  }
+
   let updateData: any = {};
 
   if (data.categoryId) {
     updateData.categoryId = data.categoryId;
+  }
+
+  if (data.mainImageId !== undefined) {
+    updateData.mainImageId = data.mainImageId;
   }
 
   if (data.publishedAt !== undefined) {
@@ -363,9 +386,9 @@ export const updateArticle = async (id: number, data: UpdateArticleRequest): Pro
   if (data.attachmentIds !== undefined) {
     updateData.attachments = {
       deleteMany: {},
-      create: data.attachmentIds.map((attachmentId, index) => ({
-        attachmentsId: attachmentId,
-        order: index
+      create: data.attachmentIds.map(attachmentId => ({
+        attachmentsId: attachmentId
+        // Removed order field
       }))
     };
   }
@@ -380,6 +403,7 @@ export const updateArticle = async (id: number, data: UpdateArticleRequest): Pro
           translations: true
         }
       },
+      mainImage: true, // Include main image
       tags: {
         include: {
           tag: {
@@ -392,10 +416,8 @@ export const updateArticle = async (id: number, data: UpdateArticleRequest): Pro
       attachments: {
         include: {
           attachment: true
-        },
-        orderBy: {
-          order: 'asc'
         }
+        // Removed orderBy since order field doesn't exist
       }
     }
   });
@@ -426,6 +448,7 @@ const formatArticleResponse = (article: any, lang?: string): ArticleResponse => 
     publishedAt: article.publishedAt,
     isPublished: article.isPublished,
     categoryId: article.categoryId,
+    mainImageId: article.mainImageId, // Add main image ID
     createdAt: article.createdAt,
     updatedAt: article.updatedAt,
     title: translation?.title || '',
@@ -435,6 +458,15 @@ const formatArticleResponse = (article: any, lang?: string): ArticleResponse => 
       id: article.category.id,
       slug: article.category.slug,
       name: getCategoryName(article.category, lang)
+    } : undefined,
+    mainImage: article.mainImage ? {
+      id: article.mainImage.id,
+      originalName: article.mainImage.originalName,
+      fileName: article.mainImage.fileName,
+      path: article.mainImage.path,
+      mimeType: article.mainImage.mimeType,
+      size: article.mainImage.size,
+      altText: article.mainImage.altText
     } : undefined,
     tags: article.tags?.map((articleTag: any) => ({
       id: articleTag.tag.id,
@@ -448,8 +480,8 @@ const formatArticleResponse = (article: any, lang?: string): ArticleResponse => 
       path: articleAttachment.attachment.path,
       mimeType: articleAttachment.attachment.mimeType,
       size: articleAttachment.attachment.size,
-      altText: articleAttachment.attachment.altText,
-      order: articleAttachment.order
+      altText: articleAttachment.attachment.altText
+      // Removed order field
     }))
   };
 };

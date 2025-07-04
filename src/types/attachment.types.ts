@@ -32,20 +32,39 @@ export interface AttachmentResponse {
 }
 
 export interface AttachmentWithRelations extends AttachmentResponse {
+  // Main image relations
+  articlesAsMainImage?: {
+    id: number;
+    slug: string;
+    title?: string;
+  }[];
+  booksAsCover?: {
+    id: number;
+    slug: string;
+    title?: string;
+  }[];
+  
+  // File relations
+  researchesAsFile?: {
+    id: number;
+    slug: string;
+    title?: string;
+  }[];
+  booksAsFile?: {
+    id: number;
+    slug: string;
+    title?: string;
+  }[];
+  
+  // Additional attachments (only for articles now)
   articleAttachments?: {
     id: number;
     articleId: number;
-    order: number;
-  }[];
-  researchAttachments?: {
-    id: number;
-    researchId: number;
-    order: number;
-  }[];
-  bookAttachments?: {
-    id: number;
-    bookId: number;
-    order: number;
+    article?: {
+      id: number;
+      slug: string;
+      title?: string;
+    };
   }[];
 }
 

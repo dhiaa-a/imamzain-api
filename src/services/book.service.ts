@@ -1,18 +1,154 @@
-// src/services/book.service.ts
 import { prisma } from "../database/prisma"; 
-import { generateSlug } from '../utils/slug.utils';
+import { generateSlug, generateUniqueSlug } from '../utils/slug.utils';
 import type { 
   CreateBookRequest, 
   UpdateBookRequest, 
   BookQuery, 
   BookResponse,
-  BookWithTranslations 
+  BookWithTranslations,
+  CreateBookCategoryRequest,
+  UpdateBookCategoryRequest
 } from '../types/book.types';
 
-export const getAllBooks = async (query: BookQuery, languageCode: string): Promise<{
+export const createBook = async (data: CreateBookRequest): Promise<BookResponse> => {
+  // Validate that category exists
+  const categoryExists = await prisma.category.findUnique({
+    where: { id: data.categoryId, model: 'BOOK' }
+  });
+  
+  if (!categoryExists) {
+    throw new Error(`Book category with ID ${data.categoryId} does not exist`);
+  }
+
+  // Validate that all tags exist if provided
+  if (data.tagIds && data.tagIds.length > 0) {
+    const existingTags = await prisma.tag.findMany({
+      where: { id: { in: data.tagIds } }
+    });
+    
+    if (existingTags.length !== data.tagIds.length) {
+      const existingTagIds = existingTags.map(tag => tag.id);
+      const missingTagIds = data.tagIds.filter(id => !existingTagIds.includes(id));
+      throw new Error(`Tags with IDs ${missingTagIds.join(', ')} do not exist`);
+    }
+  }
+
+  // Validate cover exists if provided
+  if (data.coverId) {
+    const coverExists = await prisma.attachments.findUnique({
+      where: { id: data.coverId }
+    });
+    
+    if (!coverExists) {
+      throw new Error(`Cover attachment with ID ${data.coverId} does not exist`);
+    }
+  }
+
+  // Validate file exists if provided
+  if (data.fileId) {
+    const fileExists = await prisma.attachments.findUnique({
+      where: { id: data.fileId }
+    });
+    
+    if (!fileExists) {
+      throw new Error(`File attachment with ID ${data.fileId} does not exist`);
+    }
+  }
+
+  // Validate parent book exists if provided
+  if (data.parentBookId) {
+    const parentBookExists = await prisma.book.findUnique({
+      where: { id: data.parentBookId }
+    });
+    
+    if (!parentBookExists) {
+      throw new Error(`Parent book with ID ${data.parentBookId} does not exist`);
+    }
+  }
+
+  // Generate unique slug
+  const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
+  const baseSlug = generateSlug(defaultTranslation.title);
+  
+  // Get all existing book slugs to ensure uniqueness
+  const existingBooks = await prisma.book.findMany({
+    select: { slug: true }
+  });
+  const existingSlugs = existingBooks.map(book => book.slug);
+  
+  // Generate unique slug
+  const uniqueSlug = generateUniqueSlug(baseSlug, existingSlugs);
+  
+  const book = await prisma.book.create({
+    data: {
+      slug: uniqueSlug,
+      isbn: data.isbn,
+      pages: data.pages,
+      partNumber: data.partNumber,
+      totalParts: data.totalParts,
+      publishYear: data.publishYear,
+      isPublished: data.isPublished || false,
+      categoryId: data.categoryId,
+      coverId: data.coverId,
+      fileId: data.fileId,
+      parentBookId: data.parentBookId,
+      translations: {
+        create: data.translations
+      },
+      tags: data.tagIds ? {
+        create: data.tagIds.map(tagId => ({ tagId }))
+      } : undefined
+    },
+    include: {
+      translations: true,
+      category: {
+        include: {
+          translations: true
+        }
+      },
+      cover: true,
+      file: true,
+      parentBook: {
+        include: {
+          translations: true
+        }
+      },
+      parts: {
+        include: {
+          translations: true
+        },
+        orderBy: {
+          partNumber: 'asc'
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return formatBookResponse(book);
+};
+
+export const getBooks = async (query: BookQuery, lang: string): Promise<{
   books: BookResponse[];
-  total: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }> => {
+  const page = Math.max(1, Math.floor((query.offset || 0) / (query.limit || 10)) + 1);
+  const limit = query.limit || 10;
+  const skip = (page - 1) * limit;
+
   const where: any = {};
 
   if (query.categoryId) {
@@ -25,6 +161,24 @@ export const getAllBooks = async (query: BookQuery, languageCode: string): Promi
 
   if (query.publishYear) {
     where.publishYear = query.publishYear;
+  }
+
+  if (query.parentBookId !== undefined) {
+    where.parentBookId = query.parentBookId;
+  }
+
+  if (query.hasParent !== undefined) {
+    where.parentBookId = query.hasParent ? { not: null } : null;
+  }
+
+  if (query.tagIds && query.tagIds.length > 0) {
+    where.tags = {
+      some: {
+        tagId: {
+          in: query.tagIds
+        }
+      }
+    };
   }
 
   if (query.search) {
@@ -42,197 +196,61 @@ export const getAllBooks = async (query: BookQuery, languageCode: string): Promi
   const [books, total] = await Promise.all([
     prisma.book.findMany({
       where,
+      skip,
+      take: limit,
       include: {
-        translations: {
-          where: {
-            languageCode
-          }
-        },
+        translations: true,
         category: {
           include: {
-            translations: {
-              where: {
-                languageCode
-              }
-            }
+            translations: true
           }
         },
-        attachments: {
+        cover: true,
+        file: true,
+        parentBook: {
           include: {
-            attachment: true
+            translations: true
+          }
+        },
+        parts: {
+          include: {
+            translations: true
           },
           orderBy: {
-            order: 'asc'
+            partNumber: 'asc'
+          }
+        },
+        tags: {
+          include: {
+            tag: {
+              include: {
+                translations: true
+              }
+            }
           }
         }
       },
       orderBy: {
         createdAt: 'desc'
-      },
-      take: query.limit || 10,
-      skip: query.offset || 0
+      }
     }),
     prisma.book.count({ where })
   ]);
 
-  const formattedBooks: BookResponse[] = books.map(book => {
-    const translation = book.translations[0];
-    const categoryTranslation = book.category.translations[0];
-
-    return {
-      id: book.id,
-      slug: book.slug,
-      isbn: book.isbn,
-      pages: book.pages,
-      parts: book.parts,
-      views: book.views,
-      partNumber: book.partNumber,
-      totalParts: book.totalParts,
-      publishYear: book.publishYear,
-      isPublished: book.isPublished,
-      createdAt: book.createdAt,
-      updatedAt: book.updatedAt,
-      title: translation?.title || '',
-      author: translation?.author,
-      publisher: translation?.publisher,
-      description: translation?.description,
-      series: translation?.series,
-      metaTitle: translation?.metaTitle,
-      metaDescription: translation?.metaDescription,
-      category: {
-        id: book.category.id,
-        slug: book.category.slug,
-        name: categoryTranslation?.name || ''
-      },
-      attachments: book.attachments.map(att => ({
-        id: att.id,
-        type: att.type,
-        order: att.order,
-        caption: att.caption,
-        attachment: {
-          id: att.attachment.id,
-          originalName: att.attachment.originalName,
-          fileName: att.attachment.fileName,
-          path: att.attachment.path,
-          mimeType: att.attachment.mimeType,
-          size: att.attachment.size,
-          altText: att.attachment.altText
-        }
-      }))
-    };
-  });
-
   return {
-    books: formattedBooks,
-    total
-  };
-};
-
-export const getBookBySlug = async (slug: string, languageCode: string): Promise<BookResponse | null> => {
-  const book = await prisma.book.findUnique({
-    where: { slug },
-    include: {
-      translations: {
-        where: {
-          languageCode
-        }
-      },
-      category: {
-        include: {
-          translations: {
-            where: {
-              languageCode
-            }
-          }
-        }
-      },
-      attachments: {
-        include: {
-          attachment: true
-        },
-        orderBy: {
-          order: 'asc'
-        }
-      }
+    books: books.map(book => formatBookResponse(book, lang)),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
     }
-  });
-
-  if (!book || book.translations.length === 0) {
-    return null;
-  }
-
-  // Increment views
-  await prisma.book.update({
-    where: { id: book.id },
-    data: { views: { increment: 1 } }
-  });
-
-  const translation = book.translations[0];
-  const categoryTranslation = book.category.translations[0];
-
-  return {
-    id: book.id,
-    slug: book.slug,
-    isbn: book.isbn,
-    pages: book.pages,
-    parts: book.parts,
-    views: book.views + 1,
-    partNumber: book.partNumber,
-    totalParts: book.totalParts,
-    publishYear: book.publishYear,
-    isPublished: book.isPublished,
-    createdAt: book.createdAt,
-    updatedAt: book.updatedAt,
-    title: translation.title,
-    author: translation.author,
-    publisher: translation.publisher,
-    description: translation.description,
-    series: translation.series,
-    metaTitle: translation.metaTitle,
-    metaDescription: translation.metaDescription,
-    category: {
-      id: book.category.id,
-      slug: book.category.slug,
-      name: categoryTranslation?.name || ''
-    },
-    attachments: book.attachments.map(att => ({
-      id: att.id,
-      type: att.type,
-      order: att.order,
-      caption: att.caption,
-      attachment: {
-        id: att.attachment.id,
-        originalName: att.attachment.originalName,
-        fileName: att.attachment.fileName,
-        path: att.attachment.path,
-        mimeType: att.attachment.mimeType,
-        size: att.attachment.size,
-        altText: att.attachment.altText
-      }
-    }))
   };
 };
 
-export const createBook = async (bookData: CreateBookRequest): Promise<BookWithTranslations> => {
-  // Generate slug from the default translation title
-  const defaultTranslation = bookData.translations.find(t => t.isDefault) || bookData.translations[0];
-  const slug = await generateSlug(defaultTranslation.title, 'book');
-
-  const book = await prisma.book.create({
-    data: {
-      slug,
-      isbn: bookData.isbn,
-      pages: bookData.pages,
-      parts: bookData.parts,
-      partNumber: bookData.partNumber,
-      totalParts: bookData.totalParts,
-      publishYear: bookData.publishYear,
-      isPublished: bookData.isPublished || false,
-      categoryId: bookData.categoryId,
-      translations: {
-        create: bookData.translations
-      }
-    },
+export const getBookById = async (id: number, lang: string): Promise<BookResponse | null> => {
+  const book = await prisma.book.findUnique({
+    where: { id },
     include: {
       translations: true,
       category: {
@@ -240,58 +258,207 @@ export const createBook = async (bookData: CreateBookRequest): Promise<BookWithT
           translations: true
         }
       },
-      attachments: {
+      cover: true,
+      file: true,
+      parentBook: {
         include: {
-          attachment: true
+          translations: true
+        }
+      },
+      parts: {
+        include: {
+          translations: true
+        },
+        orderBy: {
+          partNumber: 'asc'
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
         }
       }
     }
   });
 
-  return book;
+  if (!book) return null;
+
+  // Increment view count
+  await prisma.book.update({
+    where: { id },
+    data: { views: { increment: 1 } }
+  });
+
+  return formatBookResponse(book, lang);
 };
 
-export const updateBook = async (id: number, bookData: UpdateBookRequest): Promise<BookWithTranslations | null> => {
+export const getBookBySlug = async (slug: string, lang: string): Promise<BookResponse | null> => {
+  const book = await prisma.book.findUnique({
+    where: { slug },
+    include: {
+      translations: true,
+      category: {
+        include: {
+          translations: true
+        }
+      },
+      cover: true,
+      file: true,
+      parentBook: {
+        include: {
+          translations: true
+        }
+      },
+      parts: {
+        include: {
+          translations: true
+        },
+        orderBy: {
+          partNumber: 'asc'
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!book) return null;
+
+  // Increment view count
+  await prisma.book.update({
+    where: { slug },
+    data: { views: { increment: 1 } }
+  });
+
+  return formatBookResponse(book, lang);
+};
+
+export const updateBook = async (id: number, data: UpdateBookRequest): Promise<BookResponse | null> => {
   const existingBook = await prisma.book.findUnique({
     where: { id },
     include: { translations: true }
   });
 
-  if (!existingBook) {
-    return null;
-  }
+  if (!existingBook) return null;
 
-  let slug = existingBook.slug;
-
-  // If translations are being updated and there's a default one, regenerate slug
-  if (bookData.translations) {
-    const defaultTranslation = bookData.translations.find(t => t.isDefault) || bookData.translations[0];
-    if (defaultTranslation) {
-      slug = await generateSlug(defaultTranslation.title, 'book', id);
+  // Validate category if provided
+  if (data.categoryId) {
+    const categoryExists = await prisma.category.findUnique({
+      where: { id: data.categoryId, model: 'BOOK' }
+    });
+    
+    if (!categoryExists) {
+      throw new Error(`Book category with ID ${data.categoryId} does not exist`);
     }
   }
 
-  const updateData: any = {
-    slug,
-    ...(bookData.isbn !== undefined && { isbn: bookData.isbn }),
-    ...(bookData.pages !== undefined && { pages: bookData.pages }),
-    ...(bookData.parts !== undefined && { parts: bookData.parts }),
-    ...(bookData.partNumber !== undefined && { partNumber: bookData.partNumber }),
-    ...(bookData.totalParts !== undefined && { totalParts: bookData.totalParts }),
-    ...(bookData.publishYear !== undefined && { publishYear: bookData.publishYear }),
-    ...(bookData.isPublished !== undefined && { isPublished: bookData.isPublished }),
-    ...(bookData.categoryId !== undefined && { categoryId: bookData.categoryId })
-  };
-
-  // Handle translations update
-  if (bookData.translations) {
-    // Delete existing translations
-    await prisma.bookTranslation.deleteMany({
-      where: { bookId: id }
+  // Validate tags if provided
+  if (data.tagIds && data.tagIds.length > 0) {
+    const existingTags = await prisma.tag.findMany({
+      where: { id: { in: data.tagIds } }
     });
+    
+    if (existingTags.length !== data.tagIds.length) {
+      const existingTagIds = existingTags.map(tag => tag.id);
+      const missingTagIds = data.tagIds.filter(id => !existingTagIds.includes(id));
+      throw new Error(`Tags with IDs ${missingTagIds.join(', ')} do not exist`);
+    }
+  }
+
+  // Validate cover if provided
+  if (data.coverId) {
+    const coverExists = await prisma.attachments.findUnique({
+      where: { id: data.coverId }
+    });
+    
+    if (!coverExists) {
+      throw new Error(`Cover attachment with ID ${data.coverId} does not exist`);
+    }
+  }
+
+  // Validate file if provided
+  if (data.fileId) {
+    const fileExists = await prisma.attachments.findUnique({
+      where: { id: data.fileId }
+    });
+    
+    if (!fileExists) {
+      throw new Error(`File attachment with ID ${data.fileId} does not exist`);
+    }
+  }
+
+  // Validate parent book if provided (and not setting self as parent)
+  if (data.parentBookId) {
+    if (data.parentBookId === id) {
+      throw new Error('Book cannot be its own parent');
+    }
+    
+    const parentBookExists = await prisma.book.findUnique({
+      where: { id: data.parentBookId }
+    });
+    
+    if (!parentBookExists) {
+      throw new Error(`Parent book with ID ${data.parentBookId} does not exist`);
+    }
+  }
+
+  let updateData: any = {};
+
+  // Update basic fields
+  if (data.isbn !== undefined) updateData.isbn = data.isbn;
+  if (data.pages !== undefined) updateData.pages = data.pages;
+  if (data.partNumber !== undefined) updateData.partNumber = data.partNumber;
+  if (data.totalParts !== undefined) updateData.totalParts = data.totalParts;
+  if (data.publishYear !== undefined) updateData.publishYear = data.publishYear;
+  if (data.isPublished !== undefined) updateData.isPublished = data.isPublished;
+  if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
+  if (data.coverId !== undefined) updateData.coverId = data.coverId;
+  if (data.fileId !== undefined) updateData.fileId = data.fileId;
+  if (data.parentBookId !== undefined) updateData.parentBookId = data.parentBookId;
+
+  // Handle slug update if title changed
+  if (data.translations) {
+    const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
+    const currentDefaultTranslation = existingBook.translations.find(t => t.isDefault);
+    
+    if (currentDefaultTranslation && defaultTranslation.title !== currentDefaultTranslation.title) {
+      // Generate new unique slug
+      const baseSlug = generateSlug(defaultTranslation.title);
+      
+      // Get all existing book slugs except the current one
+      const existingBooks = await prisma.book.findMany({
+        select: { slug: true },
+        where: { id: { not: id } }
+      });
+      const existingSlugs = existingBooks.map(book => book.slug);
+      
+      // Generate unique slug
+      const uniqueSlug = generateUniqueSlug(baseSlug, existingSlugs);
+      updateData.slug = uniqueSlug;
+    }
 
     updateData.translations = {
-      create: bookData.translations
+      deleteMany: {},
+      create: data.translations
+    };
+  }
+
+  // Handle tags update
+  if (data.tagIds !== undefined) {
+    updateData.tags = {
+      deleteMany: {},
+      create: data.tagIds.map(tagId => ({ tagId }))
     };
   }
 
@@ -305,19 +472,47 @@ export const updateBook = async (id: number, bookData: UpdateBookRequest): Promi
           translations: true
         }
       },
-      attachments: {
+      cover: true,
+      file: true,
+      parentBook: {
         include: {
-          attachment: true
+          translations: true
+        }
+      },
+      parts: {
+        include: {
+          translations: true
+        },
+        orderBy: {
+          partNumber: 'asc'
+        }
+      },
+      tags: {
+        include: {
+          tag: {
+            include: {
+              translations: true
+            }
+          }
         }
       }
     }
   });
 
-  return updatedBook;
+  return formatBookResponse(updatedBook);
 };
 
 export const deleteBook = async (id: number): Promise<boolean> => {
   try {
+    // Check if book has parts
+    const partsCount = await prisma.book.count({
+      where: { parentBookId: id }
+    });
+
+    if (partsCount > 0) {
+      throw new Error('Cannot delete book that has parts. Delete parts first.');
+    }
+
     await prisma.book.delete({
       where: { id }
     });
@@ -327,9 +522,282 @@ export const deleteBook = async (id: number): Promise<boolean> => {
   }
 };
 
-export const checkBookExists = async (id: number): Promise<boolean> => {
-  const book = await prisma.book.findUnique({
-    where: { id }
+// Book Category services
+export const createBookCategory = async (data: CreateBookCategoryRequest): Promise<any> => {
+  const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
+  const baseSlug = generateSlug(defaultTranslation.name);
+  
+  const existingCategories = await prisma.category.findMany({
+    select: { slug: true },
+    where: { model: 'BOOK' }
   });
-  return !!book;
+  const existingSlugs = existingCategories.map(cat => cat.slug);
+  const uniqueSlug = generateUniqueSlug(baseSlug, existingSlugs);
+  
+  const category = await prisma.category.create({
+    data: {
+      slug: uniqueSlug,
+      model: 'BOOK',
+      translations: {
+        create: data.translations
+      }
+    },
+    include: {
+      translations: true
+    }
+  });
+
+  return category;
+};
+
+export const getBookCategories = async (lang?: string): Promise<any[]> => {
+  const categories = await prisma.category.findMany({
+    where: { 
+      model: 'BOOK',
+      isActive: true 
+    },
+    include: {
+      translations: true
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+
+  return categories.map(category => {
+    const translation = lang 
+      ? category.translations.find(t => t.languageCode === lang) || category.translations.find(t => t.isDefault)
+      : category.translations.find(t => t.isDefault);
+
+    return {
+      id: category.id,
+      slug: category.slug,
+      name: translation?.name || '',
+      isActive: category.isActive,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt
+    };
+  });
+};
+
+export const getBookCategoryById = async (id: number, lang?: string): Promise<any | null> => {
+  const category = await prisma.category.findUnique({
+    where: { 
+      id,
+      model: 'BOOK'
+    },
+    include: {
+      translations: true
+    }
+  });
+
+  if (!category) return null;
+
+  const translation = lang 
+    ? category.translations.find(t => t.languageCode === lang) || category.translations.find(t => t.isDefault)
+    : category.translations.find(t => t.isDefault);
+
+  return {
+    id: category.id,
+    slug: category.slug,
+    name: translation?.name || '',
+    isActive: category.isActive,
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt
+  };
+};
+
+export const getBookCategoryBySlug = async (slug: string, lang?: string): Promise<any | null> => {
+  const category = await prisma.category.findUnique({
+    where: { 
+      slug,
+      model: 'BOOK'
+    },
+    include: {
+      translations: true
+    }
+  });
+
+  if (!category) return null;
+
+  const translation = lang 
+    ? category.translations.find(t => t.languageCode === lang) || category.translations.find(t => t.isDefault)
+    : category.translations.find(t => t.isDefault);
+
+  return {
+    id: category.id,
+    slug: category.slug,
+    name: translation?.name || '',
+    isActive: category.isActive,
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt
+  };
+};
+
+export const updateBookCategory = async (id: number, data: UpdateBookCategoryRequest): Promise<any | null> => {
+  const existingCategory = await prisma.category.findUnique({
+    where: { 
+      id,
+      model: 'BOOK'
+    },
+    include: { translations: true }
+  });
+
+  if (!existingCategory) return null;
+
+  let updateData: any = {};
+
+  // Handle slug update if name changed
+  if (data.translations) {
+    const defaultTranslation = data.translations.find(t => t.isDefault) || data.translations[0];
+    const currentDefaultTranslation = existingCategory.translations.find(t => t.isDefault);
+    
+    if (currentDefaultTranslation && defaultTranslation.name !== currentDefaultTranslation.name) {
+      // Generate new unique slug
+      const baseSlug = generateSlug(defaultTranslation.name);
+      
+      // Get all existing category slugs except the current one
+      const existingCategories = await prisma.category.findMany({
+        select: { slug: true },
+        where: { 
+          id: { not: id },
+          model: 'BOOK'
+        }
+      });
+      const existingSlugs = existingCategories.map(cat => cat.slug);
+      
+      // Generate unique slug
+      const uniqueSlug = generateUniqueSlug(baseSlug, existingSlugs);
+      updateData.slug = uniqueSlug;
+    }
+
+    updateData.translations = {
+      deleteMany: {},
+      create: data.translations
+    };
+  }
+
+  const updatedCategory = await prisma.category.update({
+    where: { id },
+    data: updateData,
+    include: {
+      translations: true
+    }
+  });
+
+  return updatedCategory;
+};
+
+export const deleteBookCategory = async (id: number): Promise<boolean> => {
+  try {
+    // Check if category has books
+    const booksCount = await prisma.book.count({
+      where: { categoryId: id }
+    });
+
+    if (booksCount > 0) {
+      throw new Error('Cannot delete category that has books');
+    }
+
+    await prisma.category.delete({
+      where: { 
+        id,
+        model: 'BOOK'
+      }
+    });
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Helper function to format book response
+const formatBookResponse = (book: any, lang?: string): BookResponse => {
+  const translation = lang 
+    ? book.translations.find((t: any) => t.languageCode === lang) || book.translations.find((t: any) => t.isDefault)
+    : book.translations.find((t: any) => t.isDefault);
+
+  const categoryTranslation = lang 
+    ? book.category.translations.find((t: any) => t.languageCode === lang) || book.category.translations.find((t: any) => t.isDefault)
+    : book.category.translations.find((t: any) => t.isDefault);
+
+  const parentBookTranslation = book.parentBook && lang
+    ? book.parentBook.translations.find((t: any) => t.languageCode === lang) || book.parentBook.translations.find((t: any) => t.isDefault)
+    : book.parentBook?.translations.find((t: any) => t.isDefault);
+
+  return {
+    id: book.id,
+    slug: book.slug,
+    isbn: book.isbn,
+    pages: book.pages,
+    views: book.views,
+    partNumber: book.partNumber,
+    totalParts: book.totalParts,
+    publishYear: book.publishYear,
+    isPublished: book.isPublished,
+    categoryId: book.categoryId,
+    coverId: book.coverId,
+    fileId: book.fileId,
+    parentBookId: book.parentBookId,
+    createdAt: book.createdAt,
+    updatedAt: book.updatedAt,
+    title: translation?.title || '',
+    author: translation?.author,
+    publisher: translation?.publisher,
+    description: translation?.description,
+    series: translation?.series,
+    metaTitle: translation?.metaTitle,
+    metaDescription: translation?.metaDescription,
+    category: {
+      id: book.category.id,
+      slug: book.category.slug,
+      name: categoryTranslation?.name || ''
+    },
+    cover: book.cover ? {
+      id: book.cover.id,
+      originalName: book.cover.originalName,
+      fileName: book.cover.fileName,
+      path: book.cover.path,
+      mimeType: book.cover.mimeType,
+      size: book.cover.size,
+      altText: book.cover.altText
+    } : undefined,
+    file: book.file ? {
+      id: book.file.id,
+      originalName: book.file.originalName,
+      fileName: book.file.fileName,
+      path: book.file.path,
+      mimeType: book.file.mimeType,
+      size: book.file.size,
+      altText: book.file.altText
+    } : undefined,
+    parentBook: book.parentBook ? {
+      id: book.parentBook.id,
+      slug: book.parentBook.slug,
+      title: parentBookTranslation?.title || ''
+    } : undefined,
+    parts: book.parts?.map((part: any) => {
+      const partTranslation = lang 
+        ? part.translations.find((t: any) => t.languageCode === lang) || part.translations.find((t: any) => t.isDefault)
+        : part.translations.find((t: any) => t.isDefault);
+      
+      return {
+        id: part.id,
+        slug: part.slug,
+        title: partTranslation?.title || '',
+        partNumber: part.partNumber
+      };
+    }),
+    tags: book.tags?.map((bookTag: any) => {
+      const tagTranslation = lang 
+        ? bookTag.tag.translations.find((t: any) => t.languageCode === lang) || bookTag.tag.translations.find((t: any) => t.isDefault)
+        : bookTag.tag.translations.find((t: any) => t.isDefault);
+      
+      return {
+        id: bookTag.tag.id,
+        slug: bookTag.tag.slug,
+        name: tagTranslation?.name || ''
+      };
+    })
+  };
 };

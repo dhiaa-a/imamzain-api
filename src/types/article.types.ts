@@ -9,6 +9,7 @@ export interface CreateArticleRequest {
   categoryId: number;
   tagIds?: number[];
   attachmentIds?: number[];
+  mainImageId?: number;  // New field for main image
   publishedAt?: string;
   isPublished?: boolean;
 }
@@ -24,6 +25,7 @@ export interface UpdateArticleRequest {
   categoryId?: number;
   tagIds?: number[];
   attachmentIds?: number[];
+  mainImageId?: number;  // New field for main image
   publishedAt?: string;
   isPublished?: boolean;
 }
@@ -35,6 +37,7 @@ export interface ArticleResponse {
   publishedAt: Date | null;
   isPublished: boolean;
   categoryId: number;
+  mainImageId?: number;  // New field for main image
   createdAt: Date;
   updatedAt: Date;
   title: string;
@@ -44,6 +47,15 @@ export interface ArticleResponse {
     id: number;
     slug: string;
     name: string;
+  };
+  mainImage?: {
+    id: number;
+    originalName: string;
+    fileName: string;
+    path: string;
+    mimeType: string;
+    size: number;
+    altText?: string;
   };
   tags?: {
     id: number;
@@ -58,7 +70,7 @@ export interface ArticleResponse {
     mimeType: string;
     size: number;
     altText?: string;
-    order: number;
+    // Removed order field
   }[];
 }
 

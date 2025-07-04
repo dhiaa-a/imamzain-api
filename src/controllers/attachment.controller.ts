@@ -147,6 +147,7 @@ export const getByIdHandler = async (req: Request, res: Response): Promise<void>
 
     res.json({
       success: true,
+      message: 'Attachment retrieved successfully',
       data: attachment
     });
   } catch (error) {
@@ -187,6 +188,7 @@ export const getAllHandler = async (req: Request, res: Response): Promise<void> 
 
     res.json({
       success: true,
+      message: 'Attachments retrieved successfully',
       data: result
     });
   } catch (error) {

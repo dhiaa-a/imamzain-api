@@ -75,31 +75,107 @@ export const getAttachmentById = async (id: number): Promise<AttachmentWithRelat
     const attachment = await prisma.attachments.findUnique({
       where: { id },
       include: {
+        // Main image relations
+        articlesAsMainImage: {
+          select: {
+            id: true,
+            slug: true,
+            translations: {
+              where: { isDefault: true },
+              select: { title: true }
+            }
+          }
+        },
+        booksAsCover: {
+          select: {
+            id: true,
+            slug: true,
+            translations: {
+              where: { isDefault: true },
+              select: { title: true }
+            }
+          }
+        },
+        
+        // File relations
+        researchesAsFile: {
+          select: {
+            id: true,
+            slug: true,
+            translations: {
+              where: { isDefault: true },
+              select: { title: true }
+            }
+          }
+        },
+        booksAsFile: {
+          select: {
+            id: true,
+            slug: true,
+            translations: {
+              where: { isDefault: true },
+              select: { title: true }
+            }
+          }
+        },
+        
+        // Additional attachments (only articles remain)
         articleAttachments: {
           select: {
             id: true,
             articleId: true,
-            order: true
-          }
-        },
-        researchAttachments: {
-          select: {
-            id: true,
-            researchId: true,
-            order: true
-          }
-        },
-        bookAttachments: {
-          select: {
-            id: true,
-            bookId: true,
-            order: true
+            article: {
+              select: {
+                id: true,
+                slug: true,
+                translations: {
+                  where: { isDefault: true },
+                  select: { title: true }
+                }
+              }
+            }
           }
         }
       }
     });
 
-    return attachment;
+    if (!attachment) return null;
+
+    // Format the response to flatten title from translations
+    const formattedAttachment = {
+      ...attachment,
+      articlesAsMainImage: attachment.articlesAsMainImage.map(article => ({
+        id: article.id,
+        slug: article.slug,
+        title: article.translations[0]?.title
+      })),
+      booksAsCover: attachment.booksAsCover.map(book => ({
+        id: book.id,
+        slug: book.slug,
+        title: book.translations[0]?.title
+      })),
+      researchesAsFile: attachment.researchesAsFile.map(research => ({
+        id: research.id,
+        slug: research.slug,
+        title: research.translations[0]?.title
+      })),
+      booksAsFile: attachment.booksAsFile.map(book => ({
+        id: book.id,
+        slug: book.slug,
+        title: book.translations[0]?.title
+      })),
+      articleAttachments: attachment.articleAttachments.map(articleAttachment => ({
+        id: articleAttachment.id,
+        articleId: articleAttachment.articleId,
+        article: {
+          id: articleAttachment.article.id,
+          slug: articleAttachment.article.slug,
+          title: articleAttachment.article.translations[0]?.title
+        }
+      }))
+    };
+
+    return formattedAttachment;
   } catch (error) {
     throw new Error(`Failed to get attachment: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
@@ -207,11 +283,31 @@ export const updateAttachment = async (id: number, data: UpdateAttachmentRequest
 export const deleteAttachment = async (id: number): Promise<boolean> => {
   try {
     const attachment = await prisma.attachments.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        // Check if attachment is being used
+        articlesAsMainImage: { select: { id: true } },
+        booksAsCover: { select: { id: true } },
+        researchesAsFile: { select: { id: true } },
+        booksAsFile: { select: { id: true } },
+        articleAttachments: { select: { id: true } }
+      }
     });
 
     if (!attachment) {
       return false;
+    }
+
+    // Check if attachment is being used
+    const isInUse = 
+      attachment.articlesAsMainImage.length > 0 ||
+      attachment.booksAsCover.length > 0 ||
+      attachment.researchesAsFile.length > 0 ||
+      attachment.booksAsFile.length > 0 ||
+      attachment.articleAttachments.length > 0;
+
+    if (isInUse) {
+      throw new Error('Cannot delete attachment: it is currently being used by one or more entities');
     }
 
     // Convert HTTP URL back to file system path for deletion

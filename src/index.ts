@@ -13,6 +13,7 @@ import tagRoutes from './routes/tag.routes';
 import attachmentRouter from "./routes/attachment.routes"
 import articleRoutes from './routes/article.routes';
 import researchRoutes from './routes/research.routes';
+import bookRouter from './routes/book.routes';
 import { authenticateJWT } from "./middlewares/auth.middleware"
 import { errorHandler } from "./middlewares/error.middleware"
 
@@ -71,7 +72,8 @@ app.use("/api/v1/attachments", attachmentRouter)
 app.use('/api/v1/:lang/categories', categoryRoutes);
 app.use('/api/v1/:lang/tags', tagRoutes);
 app.use('/api/v1/:lang/articles', articleRoutes); 
-app.use('/api/v1/:lang/research', researchRoutes); 
+// app.use('/api/v1/:lang/research', researchRoutes); 
+app.use('/api/v1/:lang/books', bookRouter); 
 // 11) Global error handler
 app.use(errorHandler)
 

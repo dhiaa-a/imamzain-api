@@ -6,15 +6,16 @@ import {
   getBookBySlug,
   getBooks,
   updateBook,
-  deleteBook,
-  createBookCategory,
-  getBookCategories,
-  getBookCategoryById,
-  getBookCategoryBySlug,
-  updateBookCategory,
-  deleteBookCategory
+  deleteBook
 } from "../services/book.service";
-import { CreateBookRequest, UpdateBookRequest, CreateBookCategoryRequest, UpdateBookCategoryRequest } from "../types/book.types";
+import { 
+  createBookSchema,
+  updateBookSchema,
+  getBookSchema,
+  getBookBySlugSchema,
+  getBooksSchema,
+  deleteBookSchema
+} from "../validations/book.validations";
 
 export async function createBookHandler(
   req: Request,
@@ -22,90 +23,63 @@ export async function createBookHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const bookData: CreateBookRequest = req.body;
-    const { lang } = req.params;
+    const validationResult = createBookSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
     
-    const book = await createBook(bookData);
+    const book = await createBook(req.body);
     
     res.status(201).json({
       success: true,
-      data: book,
-      message: `Book created with auto-generated slug: ${book.slug}`
+      message: 'Book created successfully',
+      data: book
     });
   } catch (error: any) {
-    if (error.message === "CATEGORY_NOT_FOUND") {
+    if (error.message.includes('category with ID') && error.message.includes('does not exist')) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book category not found"
-        }
+        message: error.message
       });
       return;
     }
     
-    if (error.message === "INVALID_LANGUAGE_CODES") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "One or more language codes are invalid"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "INVALID_SLUG_FORMAT") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid slug format. Slug must contain only lowercase letters, numbers, and hyphens"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "EXACTLY_ONE_DEFAULT_TRANSLATION_REQUIRED") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Exactly one translation must be marked as default"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "SOME_ATTACHMENTS_NOT_FOUND") {
+    if (error.message.includes('Tags with IDs') && error.message.includes('do not exist')) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Some attachment IDs do not exist"
-        }
+        message: error.message
       });
       return;
     }
 
-    if (error.message === "DUPLICATE_ATTACHMENT_IDS") {
-      res.status(400).json({
+    if (error.message.includes('Cover attachment with ID') && error.message.includes('does not exist')) {
+      res.status(404).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Duplicate attachment IDs found"
-        }
+        message: error.message
       });
       return;
     }
 
-    if (error.message === "DUPLICATE_ATTACHMENT_ORDERS") {
-      res.status(400).json({
+    if (error.message.includes('File attachment with ID') && error.message.includes('does not exist')) {
+      res.status(404).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Duplicate attachment order values found"
-        }
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message.includes('Parent book with ID') && error.message.includes('does not exist')) {
+      res.status(404).json({
+        success: false,
+        message: error.message
       });
       return;
     }
@@ -120,35 +94,33 @@ export async function getBookHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { id, lang } = req.params;
-    
-    const bookId = parseInt(id);
-    if (isNaN(bookId)) {
+    const validationResult = getBookSchema.safeParse(req);
+    if (!validationResult.success) {
       res.status(400).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid book ID"
-        }
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
       });
       return;
     }
 
-    const book = await getBookById(bookId, lang);
+    const { id, lang } = validationResult.data.params;
+    const book = await getBookById(id, lang);
     
     if (!book) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book not found"
-        }
+        message: 'Book not found'
       });
       return;
     }
 
     res.json({
       success: true,
+      message: 'Book retrieved successfully',
       data: book
     });
   } catch (error) {
@@ -162,23 +134,33 @@ export async function getBookBySlugHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { slug, lang } = req.params;
+    const validationResult = getBookBySlugSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
 
+    const { slug, lang } = validationResult.data.params;
     const book = await getBookBySlug(slug, lang);
     
     if (!book) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book not found"
-        }
+        message: 'Book not found'
       });
       return;
     }
 
     res.json({
       success: true,
+      message: 'Book retrieved successfully',
       data: book
     });
   } catch (error) {
@@ -192,32 +174,39 @@ export async function getBooksHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { lang } = req.params;
-    const {
-      page = "1",
-      limit = "10",
-      categoryId,
-      search,
-      author,
-      series
-    } = req.query;
+    const validationResult = getBooksSchema.safeParse(req);
+    if (!validationResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const { lang } = validationResult.data.params;
+    const { page, limit, categoryId, isPublished, publishYear, parentBookId, hasParent, tagIds, search } = validationResult.data.query;
 
     const query = {
-      page: parseInt(page as string) || 1,
-      limit: parseInt(limit as string) || 10,
-      categoryId: categoryId ? parseInt(categoryId as string) : undefined,
-      languageCode: lang,
-      search: search as string,
-      author: author as string,
-      series: series as string
+      categoryId,
+      isPublished,
+      publishYear,
+      parentBookId,
+      hasParent,
+      tagIds,
+      search,
+      limit, 
     };
 
-    const result = await getBooks(query);
+    const result = await getBooks(query, lang);
     
     res.json({
       success: true,
-      data: result.books,
-      pagination: result.pagination
+      message: 'Books retrieved successfully',
+      data: result
     });
   } catch (error) {
     next(error);
@@ -230,101 +219,80 @@ export async function updateBookHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { id, lang } = req.params;
-    const updateData: UpdateBookRequest = req.body;
-    
-    const bookId = parseInt(id);
-    if (isNaN(bookId)) {
+    const validationResult = updateBookSchema.safeParse(req);
+    if (!validationResult.success) {
       res.status(400).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid book ID"
-        }
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
       });
       return;
     }
 
-    const book = await updateBook(bookId, updateData);
+    const { id } = validationResult.data.params;
+    const book = await updateBook(id, req.body);
+    
+    if (!book) {
+      res.status(404).json({
+        success: false,
+        message: 'Book not found'
+      });
+      return;
+    }
     
     res.json({
       success: true,
+      message: 'Book updated successfully',
       data: book
     });
   } catch (error: any) {
-    if (error.message === "BOOK_NOT_FOUND") {
+    if (error.message.includes('category with ID') && error.message.includes('does not exist')) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book not found"
-        }
+        message: error.message
       });
       return;
     }
     
-    if (error.message === "INVALID_SLUG_FORMAT") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid slug format. Slug must contain only lowercase letters, numbers, and hyphens"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "INVALID_LANGUAGE_CODES") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "One or more language codes are invalid"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "ONLY_ONE_DEFAULT_TRANSLATION_ALLOWED") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Only one translation can be marked as default"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "SOME_ATTACHMENTS_NOT_FOUND") {
+    if (error.message.includes('Tags with IDs') && error.message.includes('do not exist')) {
       res.status(404).json({
         success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Some attachment IDs do not exist"
-        }
+        message: error.message
       });
       return;
     }
 
-    if (error.message === "DUPLICATE_ATTACHMENT_IDS") {
-      res.status(400).json({
+    if (error.message.includes('Cover attachment with ID') && error.message.includes('does not exist')) {
+      res.status(404).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Duplicate attachment IDs found"
-        }
+        message: error.message
       });
       return;
     }
 
-    if (error.message === "DUPLICATE_ATTACHMENT_ORDERS") {
+    if (error.message.includes('File attachment with ID') && error.message.includes('does not exist')) {
+      res.status(404).json({
+        success: false,
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message.includes('Parent book with ID') && error.message.includes('does not exist')) {
+      res.status(404).json({
+        success: false,
+        message: error.message
+      });
+      return;
+    }
+
+    if (error.message === 'Book cannot be its own parent') {
       res.status(400).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Duplicate attachment order values found"
-        }
+        message: error.message
       });
       return;
     }
@@ -339,351 +307,39 @@ export async function deleteBookHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { id, lang } = req.params;
-    
-    const bookId = parseInt(id);
-    if (isNaN(bookId)) {
+    const validationResult = deleteBookSchema.safeParse(req);
+    if (!validationResult.success) {
       res.status(400).json({
         success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid book ID"
-        }
+        message: 'Validation failed',
+        errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
       });
       return;
     }
 
-    await deleteBook(bookId);
+    const { id } = validationResult.data.params;
+    const deleted = await deleteBook(id);
     
+    if (!deleted) {
+      res.status(404).json({
+        success: false,
+        message: 'Book not found'
+      });
+      return;
+    }
+
     res.json({
       success: true,
-      message: "Book deleted successfully"
+      message: 'Book deleted successfully'
     });
   } catch (error: any) {
-    if (error.message === "BOOK_NOT_FOUND") {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book not found"
-        }
-      });
-      return;
-    }
-    
-    next(error);
-  }
-}
-
-// Book Category handlers
-export async function createBookCategoryHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const categoryData: CreateBookCategoryRequest = req.body;
-    
-    const bookCategory = await createBookCategory(categoryData);
-    
-    res.status(201).json({
-      success: true,
-      data: bookCategory
-    });
-  } catch (error: any) {
-    if (error.message === "PARENT_CATEGORY_NOT_FOUND") {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Parent category not found"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "BOOK_CATEGORY_SLUG_EXISTS") {
+    if (error.message.includes('Cannot delete book that has parts')) {
       res.status(409).json({
         success: false,
-        error: {
-          code: "CONFLICT",
-          message: "Book category with this slug already exists"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "INVALID_LANGUAGE_CODES") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "One or more language codes are invalid"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "EXACTLY_ONE_DEFAULT_TRANSLATION_REQUIRED") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Exactly one translation must be marked as default"
-        }
-      });
-      return;
-    }
-    
-    next(error);
-  }
-}
-
-export async function getBookCategoriesHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { lang } = req.params;
-    
-    const bookCategories = await getBookCategories(lang);
-    
-    res.json({
-      success: true,
-      data: bookCategories
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function getBookCategoryHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { id, lang } = req.params;
-    
-    const categoryId = parseInt(id);
-    if (isNaN(categoryId)) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid category ID"
-        }
-      });
-      return;
-    }
-
-    const category = await getBookCategoryById(categoryId, lang);
-    
-    if (!category) {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book category not found"
-        }
-      });
-      return;
-    }
-
-    res.json({
-      success: true,
-      data: category
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function getBookCategoryBySlugHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { slug, lang } = req.params;
-
-    const category = await getBookCategoryBySlug(slug, lang);
-    
-    if (!category) {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book category not found"
-        }
-      });
-      return;
-    }
-
-    res.json({
-      success: true,
-      data: category
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function updateBookCategoryHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { id } = req.params;
-    const updateData: UpdateBookCategoryRequest = req.body;
-    
-    const categoryId = parseInt(id);
-    if (isNaN(categoryId)) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid category ID"
-        }
-      });
-      return;
-    }
-
-    const bookCategory = await updateBookCategory(categoryId, updateData);
-    
-    res.json({
-      success: true,
-      data: bookCategory
-    });
-  } catch (error: any) {
-    if (error.message === "BOOK_CATEGORY_NOT_FOUND") {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book category not found"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "PARENT_CATEGORY_NOT_FOUND") {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Parent category not found"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "CANNOT_SET_SELF_AS_PARENT") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Cannot set category as its own parent"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "BOOK_CATEGORY_SLUG_EXISTS") {
-      res.status(409).json({
-        success: false,
-        error: {
-          code: "CONFLICT",
-          message: "Book category with this slug already exists"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "INVALID_LANGUAGE_CODES") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "One or more language codes are invalid"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "ONLY_ONE_DEFAULT_TRANSLATION_ALLOWED") {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Only one translation can be marked as default"
-        }
-      });
-      return;
-    }
-    
-    next(error);
-  }
-}
-
-export async function deleteBookCategoryHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const { id } = req.params;
-    
-    const categoryId = parseInt(id);
-    if (isNaN(categoryId)) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: "BAD_REQUEST",
-          message: "Invalid category ID"
-        }
-      });
-      return;
-    }
-
-    await deleteBookCategory(categoryId);
-    
-    res.json({
-      success: true,
-      message: "Book category deleted successfully"
-    });
-  } catch (error: any) {
-    if (error.message === "BOOK_CATEGORY_NOT_FOUND") {
-      res.status(404).json({
-        success: false,
-        error: {
-          code: "NOT_FOUND",
-          message: "Book category not found"
-        }
-      });
-      return;
-    }
-    
-    if (error.message === "BOOK_CATEGORY_HAS_BOOKS") {
-      res.status(409).json({
-        success: false,
-        error: {
-          code: "CONFLICT",
-          message: "Cannot delete category as it contains books"
-        }
-      });
-      return;
-    }
-
-    if (error.message === "BOOK_CATEGORY_HAS_CHILDREN") {
-      res.status(409).json({
-        success: false,
-        error: {
-          code: "CONFLICT",
-          message: "Cannot delete category as it has child categories"
-        }
+        message: error.message
       });
       return;
     }
