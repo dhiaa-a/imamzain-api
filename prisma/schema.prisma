@@ -165,9 +165,18 @@ model Attachments {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  articleAttachments  ArticleAttachments[]
-  researchAttachments ResearchAttachments[]
-  bookAttachments     BookAttachments[]
+  // Main image relations
+  articlesAsMainImage     Article[]
+  
+  // Cover relations
+  booksAsCover            Book[]      @relation("BookCover")
+  
+  // File relations
+  researchesAsFile        Research[]  @relation("ResearchFile")
+  booksAsFile             Book[]      @relation("BookFile")
+  
+  // Additional attachments relations
+  articleAttachments      ArticleAttachments[]
 }
 
 //
@@ -245,10 +254,12 @@ model Article {
   publishedAt  DateTime?
   isPublished  Boolean               @default(false)
   categoryId   Int
+  mainImageId  Int?                  // New field for main image
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 
   category     Category              @relation(fields: [categoryId], references: [id])
+  mainImage    Attachments?          @relation(fields: [mainImageId], references: [id])
   translations ArticleTranslation[]
   attachments  ArticleAttachments[]
   tags         ArticleTag[]
@@ -273,7 +284,6 @@ model ArticleAttachments {
   id            Int         @id @default(autoincrement())
   articleId     Int
   attachmentsId Int
-  order         Int         @default(0)
 
   article       Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
   attachment    Attachments @relation(fields: [attachmentsId], references: [id])
@@ -304,12 +314,13 @@ model Research {
   pages        Int?
   isPublished  Boolean                @default(false)
   categoryId   Int
+  fileId       Int?                   // Single research file (PDF, etc.)
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
 
   category     Category               @relation(fields: [categoryId], references: [id])
+  file         Attachments?           @relation("ResearchFile", fields: [fileId], references: [id])
   translations ResearchTranslation[]
-  attachments  ResearchAttachments[]
   tags         ResearchTag[]
 }
 
@@ -328,18 +339,6 @@ model ResearchTranslation {
   language     Language @relation(fields: [languageCode], references: [code])
 
   @@unique([researchId, languageCode])
-}
-
-model ResearchAttachments {
-  id            Int         @id @default(autoincrement())
-  researchId    Int
-  attachmentsId Int
-  order         Int         @default(0) 
-
-  research      Research    @relation(fields: [researchId], references: [id], onDelete: Cascade)
-  attachment    Attachments @relation(fields: [attachmentsId], references: [id])
-
-  @@unique([researchId, attachmentsId])
 }
 
 model ResearchTag {
@@ -362,19 +361,27 @@ model Book {
   slug         String             @unique
   isbn         String?
   pages        Int?
-  parts        Int?
   views        Int                @default(0)
   partNumber   Int?
   totalParts   Int?
   publishYear  String?
   isPublished  Boolean            @default(false)
   categoryId   Int
+  coverId      Int?               // Book cover image
+  fileId       Int?               // Single book file (PDF, etc.)
+  parentBookId Int?               // Self-relation for book parts
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
   category     Category           @relation(fields: [categoryId], references: [id])
+  cover        Attachments?       @relation("BookCover", fields: [coverId], references: [id])
+  file         Attachments?       @relation("BookFile", fields: [fileId], references: [id])
+  
+  // Self-relation for book parts
+  parentBook   Book?              @relation("BookParts", fields: [parentBookId], references: [id])
+  parts        Book[]             @relation("BookParts")
+  
   translations BookTranslation[]
-  attachments  BookAttachments[]
   tags         BookTag[]
 }
 
@@ -395,18 +402,6 @@ model BookTranslation {
   language     Language @relation(fields: [languageCode], references: [code])
 
   @@unique([bookId, languageCode])
-}
-
-model BookAttachments {
-  id            Int         @id @default(autoincrement())
-  bookId        Int
-  attachmentsId Int
-  order         Int         @default(0)
-
-  book          Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  attachment    Attachments @relation(fields: [attachmentsId], references: [id])
-
-  @@unique([bookId, attachmentsId])
 }
 
 model BookTag {
