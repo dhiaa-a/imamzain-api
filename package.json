@@ -1,11 +1,12 @@
 {
   "name": "imamzan",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node ./dist/index.js",
+    "start": "node dist/index.js",
     "dev": "nodemon",
-    "build": "tsc --build"
+    "build": "tsc --build",
+    "postinstall": "npm run build"
   },
   "prisma": {
     "schema": "prisma/schema.prisma",
