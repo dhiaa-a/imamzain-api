@@ -26,15 +26,13 @@ export const createResearch = async (data: CreateResearchRequest): Promise<Resea
     }
   }
 
-  // Validate attachments exist
-  if (data.attachmentIds && data.attachmentIds.length > 0) {
-    const existingAttachments = await prisma.attachments.findMany({
-      where: { id: { in: data.attachmentIds } }
+  // Validate file exists
+  if (data.fileId) {
+    const existingFile = await prisma.attachments.findUnique({
+      where: { id: data.fileId }
     });
-    if (existingAttachments.length !== data.attachmentIds.length) {
-      const existingAttachmentIds = existingAttachments.map(attachment => attachment.id);
-      const missingAttachmentIds = data.attachmentIds.filter(id => !existingAttachmentIds.includes(id));
-      throw new Error(`Attachments with IDs ${missingAttachmentIds.join(', ')} do not exist`);
+    if (!existingFile) {
+      throw new Error(`File with ID ${data.fileId} does not exist`);
     }
   }
 
@@ -59,12 +57,7 @@ export const createResearch = async (data: CreateResearchRequest): Promise<Resea
       tags: data.tagIds ? {
         create: data.tagIds.map(tagId => ({ tagId }))
       } : undefined,
-      attachments: data.attachmentIds ? {
-        create: data.attachmentIds.map((attachmentId, index) => ({
-          attachmentsId: attachmentId,
-          order: index
-        }))
-      } : undefined
+      fileId: data.fileId
     },
     include: {
       translations: true,
@@ -78,10 +71,7 @@ export const createResearch = async (data: CreateResearchRequest): Promise<Resea
           }
         }
       },
-      attachments: {
-        include: { attachment: true },
-        orderBy: { order: 'asc' }
-      }
+      file: true
     }
   });
 
@@ -135,10 +125,7 @@ export const getResearches = async (lang: string, filters: ResearchFilters = {},
         translations: true,
         category: { include: { translations: true } },
         tags: { include: { tag: { include: { translations: true } } } },
-        attachments: {
-          include: { attachment: true },
-          orderBy: { order: 'asc' }
-        }
+        file: true
       }
     }),
     prisma.research.count({ where })
@@ -162,10 +149,7 @@ export const getResearchById = async (id: number, lang: string): Promise<Researc
       translations: true,
       category: { include: { translations: true } },
       tags: { include: { tag: { include: { translations: true } } } },
-      attachments: {
-        include: { attachment: true },
-        orderBy: { order: 'asc' }
-      }
+      file: true
     }
   });
 
@@ -187,10 +171,7 @@ export const getResearchBySlug = async (slug: string, lang: string): Promise<Res
       translations: true,
       category: { include: { translations: true } },
       tags: { include: { tag: { include: { translations: true } } } },
-      attachments: {
-        include: { attachment: true },
-        orderBy: { order: 'asc' }
-      }
+      file: true
     }
   });
 
@@ -238,15 +219,13 @@ export const updateResearch = async (id: number, data: UpdateResearchRequest): P
     }
   }
 
-  // Validate attachments if provided
-  if (data.attachmentIds && data.attachmentIds.length > 0) {
-    const existingAttachments = await prisma.attachments.findMany({
-      where: { id: { in: data.attachmentIds } }
+  // Validate file if provided
+  if (data.fileId) {
+    const existingFile = await prisma.attachments.findUnique({
+      where: { id: data.fileId }
     });
-    if (existingAttachments.length !== data.attachmentIds.length) {
-      const existingAttachmentIds = existingAttachments.map(attachment => attachment.id);
-      const missingAttachmentIds = data.attachmentIds.filter(id => !existingAttachmentIds.includes(id));
-      throw new Error(`Attachments with IDs ${missingAttachmentIds.join(', ')} do not exist`);
+    if (!existingFile) {
+      throw new Error(`File with ID ${data.fileId} does not exist`);
     }
   }
 
@@ -279,23 +258,13 @@ export const updateResearch = async (id: number, data: UpdateResearchRequest): P
   if (data.publishedAt !== undefined) updateData.publishedAt = data.publishedAt;
   if (data.pages !== undefined) updateData.pages = data.pages;
   if (data.isPublished !== undefined) updateData.isPublished = data.isPublished;
+  if (data.fileId !== undefined) updateData.fileId = data.fileId;
 
   // Handle tags
   if (data.tagIds) {
     updateData.tags = {
       deleteMany: {},
       create: data.tagIds.map(tagId => ({ tagId }))
-    };
-  }
-
-  // Handle attachments
-  if (data.attachmentIds) {
-    updateData.attachments = {
-      deleteMany: {},
-      create: data.attachmentIds.map((attachmentId, index) => ({
-        attachmentsId: attachmentId,
-        order: index
-      }))
     };
   }
 
@@ -306,10 +275,7 @@ export const updateResearch = async (id: number, data: UpdateResearchRequest): P
       translations: true,
       category: { include: { translations: true } },
       tags: { include: { tag: { include: { translations: true } } } },
-      attachments: {
-        include: { attachment: true },
-        orderBy: { order: 'asc' }
-      }
+      file: true
     }
   });
 
@@ -355,16 +321,15 @@ const formatResearchResponse = (research: any, lang?: string): ResearchResponse 
       slug: researchTag.tag.slug,
       name: getTagName(researchTag.tag, lang)
     })),
-    attachments: research.attachments?.map((researchAttachment: any) => ({
-      id: researchAttachment.attachment.id,
-      originalName: researchAttachment.attachment.originalName,
-      fileName: researchAttachment.attachment.fileName,
-      path: researchAttachment.attachment.path,
-      mimeType: researchAttachment.attachment.mimeType,
-      size: researchAttachment.attachment.size,
-      altText: researchAttachment.attachment.altText,
-      order: researchAttachment.order
-    }))
+    file: research.file ? {
+      id: research.file.id,
+      originalName: research.file.originalName,
+      fileName: research.file.fileName,
+      path: research.file.path,
+      mimeType: research.file.mimeType,
+      size: research.file.size,
+      altText: research.file.altText
+    } : undefined
   };
 };
 

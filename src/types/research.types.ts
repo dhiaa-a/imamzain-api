@@ -10,7 +10,7 @@ export interface CreateResearchRequest {
   }[];
   categoryId: number;
   tagIds?: number[];
-  attachmentIds?: number[];
+  fileId?: number;
   publishedAt?: Date;
   pages?: number;
   isPublished?: boolean;
@@ -28,7 +28,7 @@ export interface UpdateResearchRequest {
   }[];
   categoryId?: number;
   tagIds?: number[];
-  attachmentIds?: number[];
+  fileId?: number;
   publishedAt?: Date;
   pages?: number;
   isPublished?: boolean;
@@ -58,7 +58,7 @@ export interface ResearchResponse {
     slug: string;
     name: string;
   }[];
-  attachments?: {
+  file?: {
     id: number;
     originalName: string;
     fileName: string;
@@ -66,8 +66,7 @@ export interface ResearchResponse {
     mimeType: string;
     size: number;
     altText?: string;
-    order: number;
-  }[];
+  };
 }
 
 export interface ResearchListResponse {
